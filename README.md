@@ -83,3 +83,63 @@ BabyGuard-AI/
 3 .Main 브랜치 직접 Push 금지: 각자 브랜치에서 작업 후 Pull Request를 통해 합치기
 
 4. Merge는 하지마세요.
+
+## 🛠️ BabyGuard-AI 팀 코딩 컨벤션
+
+1. 깃(Git) 사용 및 커밋 메시지 규칙
+가장 중요한 규칙입니다. 누가 무엇을 수정했는지 한눈에 알 수 있어야 합니다.
+
+커밋 메시지 형식: 타입: 요약 내용
+
+feat: 새로운 기능 추가
+
+fix: 버그 수정
+
+docs: 문서 수정 (README, 보고서 등)
+
+refactor: 코드 리팩토링 (기능 변경 없이 코드 구조만 개선)
+
+style: 코드 포맷팅, 세미콜론 누락 등 (코드 변경 없음)
+
+예시: feat: 유아 인식용 YOLOv8 모델 로드 기능 추가
+
+주의: 수정, ㅎㅇ, test 같은 무의미한 커밋 메시지는 절대 금지!
+
+2. 파이썬(Python) 규칙 (AI & Backend 파트)
+파이썬 표준인 PEP 8을 기본으로 합니다.
+
+변수 & 함수명: snake_case (소문자와 언더바 사용)
+
+예: baby_coords, detect_person()
+
+클래스명: PascalCase (첫 글자 대문자)
+
+예: VideoProcessor, NotificationManager
+
+들여쓰기: 스페이스 4칸 (Tab 대신 스페이스 권장)
+
+주석: 함수 상단에 이 함수가 무엇을 하는지 한 줄 설명을 적어주세요.
+
+3. 다트(Dart/Flutter) 규칙 (App 파트)
+구글의 공식 가이드를 따릅니다.
+
+변수 & 함수명: lowerCamelCase (소문자로 시작, 단어 사이 대문자)
+
+예: isDangerZone, updateStream()
+
+클래스 & 위젯명: UpperCamelCase (첫 글자 대문자)
+
+예: HomeScreen, AlarmButton
+
+파일명: snake_case
+
+예: home_screen.dart, main_provider.dart
+
+4. 공통 협업 규칙 (The Golden Rules)
+의미 있는 이름 짓기: a, b, temp1 같은 변수명은 금지입니다. user_id, frame_count처럼 이름을 보고 용도를 알 수 있어야 합니다.
+
+함수는 한 가지만 하기: 하나의 함수가 영상도 읽고, AI도 돌리고, 알림도 보내면 안 됩니다. 기능을 쪼개세요.
+
+하드코딩 금지: IP 주소, API 키, 파일 경로 등은 코드 중간에 직접 쓰지 말고 파일 상단에 CONSTANT로 선언하거나 별도 설정 파일(.env)에 모아둡니다.
+
+작업 전 Pull, 작업 후 Push: 코드를 짜기 전에 반드시 git pull을 해서 최신 상태를 만들고 시작하세요.
