@@ -76,17 +76,17 @@ BabyGuard-AI/
 
 ## 깃허브 규칙
 
-1. 커밋 메시지는 정해진 규칙 따르기: 예) feat: 로그인 기능 추가, fix: 영상 끊김 버그 수정
+#### 1. 커밋 메시지는 정해진 규칙 따르기: 예) feat: 로그인 기능 추가, fix: 영상 끊김 버그 수정
 
-2. 작업 전 Pull, 작업 후 Push: 항상 최신 코드를 유지
+#### 2. 작업 전 Pull, 작업 후 Push: 항상 최신 코드를 유지
 
-3. Main 브랜치 직접 Push 금지: 각자 브랜치에서 작업 후 Pull Request를 통해 합치기
+#### 3. Main 브랜치 직접 Push 금지: 각자 브랜치에서 작업 후 Pull Request를 통해 합치기
 
-4. Merge는 하지마세요.
+#### 4. Merge는 하지마세요.
 
 ## 🛠️ BabyGuard-AI 팀 코딩 컨벤션
 
-1. 깃(Git) 사용 및 커밋 메시지 규칙
+#### 1. 깃(Git) 사용 및 커밋 메시지 규칙
    
 + 가장 중요한 규칙입니다. 누가 무엇을 수정했는지 한눈에 알 수 있어야 합니다.
 
@@ -106,7 +106,7 @@ BabyGuard-AI/
    
 + 주의: 수정, ㅎㅇ, test 같은 무의미한 커밋 메시지는 절대 금지!
 
-3. 파이썬(Python) 규칙 (AI & Backend 파트)
+#### 2. 파이썬(Python) 규칙 (AI & Backend 파트)
    
 + 파이썬 표준인 PEP 8을 기본으로 합니다.
    
@@ -122,7 +122,7 @@ BabyGuard-AI/
    
 + 주석: 함수 상단에 이 함수가 무엇을 하는지 한 줄 설명을 적어주세요.
 
-3. 다트(Dart/Flutter) 규칙 (App 파트)
+#### 3. 다트(Dart/Flutter) 규칙 (App 파트)
    
 + 구글의 공식 가이드를 따릅니다.
    
@@ -138,7 +138,7 @@ BabyGuard-AI/
    
 + 예: home_screen.dart, main_provider.dart
 
-4. 공통 협업 규칙 (The Golden Rules)
+#### 4. 공통 협업 규칙 (The Golden Rules)
       
 + 의미 있는 이름 짓기: a, b, temp1 같은 변수명은 금지입니다. user_id, frame_count처럼 이름을 보고 용도를 알 수 있어야 합니다.
    
