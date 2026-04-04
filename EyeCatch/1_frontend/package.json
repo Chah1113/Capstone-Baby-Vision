@@ -1,0 +1,13 @@
+{
+  "name": "eyecatch-app",
+  "version": "0.1.0",
+  "description": "EyeCatch 유아 안전 모니터링 앱",
+  "private": true,
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "ios": "react-native run-ios"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
