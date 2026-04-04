@@ -35,6 +35,11 @@ services:
       - "5050:80"
     depends_on:
       - db
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    ports:
+      - "8554:8554"   # RTSP
+      - "8888:8888"
 
 volumes:
   postgres_data:

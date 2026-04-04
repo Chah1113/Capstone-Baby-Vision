@@ -5,6 +5,8 @@ from db.base import AsyncSessionLocal
 from db.models import Camera
 from pydantic import BaseModel
 from core.security import decode_access_token
+import uuid
+import os
 
 router = APIRouter(prefix="/cameras", tags=["cameras"])
 
@@ -18,8 +20,7 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
     return int(payload.get("sub"))
 
 class CameraCreate(BaseModel):
-    name: str
-    stream_url: str
+    name: str  # stream_url 제거
 
 @router.post("")
 async def create_camera(
@@ -27,10 +28,13 @@ async def create_camera(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
+    server_host = os.getenv("SERVER_HOST", "localhost")
+    stream_url = f"rtsp://{server_host}:8554/{uuid.uuid4()}"  # 자동 생성
+
     camera = Camera(
         user_id=user_id,
         name=body.name,
-        stream_url=body.stream_url
+        stream_url=stream_url
     )
     db.add(camera)
     await db.commit()
