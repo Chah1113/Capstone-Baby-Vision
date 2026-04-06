@@ -1,0 +1,28 @@
+{
+  "name": "capstone-baby-vision1",
+  "version": "1.0.0",
+  "description": "AI 기반 유아 안전 사고 예방 실시간 관제 시스템 > 2026학년도 1학기 기초캡스톤디자인",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "dev": "node app.js" 
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chah1113/Capstone-Baby-Vision.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Chah1113/Capstone-Baby-Vision/issues"
+  },
+  "homepage": "https://github.com/Chah1113/Capstone-Baby-Vision#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
