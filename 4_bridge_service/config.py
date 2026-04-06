@@ -22,4 +22,4 @@ MEDIAMTX_HOST = "localhost"
 MEDIAMTX_RTSP_PORT = 8554
 
 # --- 메인 서버 API ---
-MAIN_SERVER_URL = "http://localhost:8000"
+MAIN_SERVER_URL = "https://succeedable-untabled-dewitt.ngrok-free.dev/"
