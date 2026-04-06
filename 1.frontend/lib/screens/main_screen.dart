@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// 1. 만들어둔 다른 화면 파일들을 불러옵니다.
+import 'zone_screen.dart';
+import 'settings_screen.dart';
+import 'history_screen.dart'; // 사건 내역 화면 파일
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -35,9 +40,8 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index;
+      _selectedIndex = index; // 탭을 누르면 이 번호가 바뀝니다.
     });
-    // index에 따라 다른 화면의 위젯을 보여주거나 라우팅 처리
   }
 
   void _handleLogout() async {
@@ -52,8 +56,9 @@ class _MainScreenState extends State<MainScreen> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
-  @override
-  Widget build(BuildContext context) {
+  // 2. 메인(모니터링) 화면을 별도의 위젯으로 분리했습니다.
+  // (ZoneScreen과 SettingsScreen이 자체 AppBar를 갖고 있어서 화면이 겹치지 않게 분리)
+  Widget _buildMonitoringScreen() {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Eye Catch', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -81,7 +86,6 @@ class _MainScreenState extends State<MainScreen> {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            // 라이브 스트림 썸네일 영역
             GestureDetector(
               onTap: () {
                 // Navigator.pushNamed(context, '/live-stream');
@@ -104,7 +108,6 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // 알림 카드 영역
             Card(
               child: ListTile(
                 leading: const Icon(Icons.warning, color: Colors.red),
@@ -118,6 +121,22 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // 3. 핵심 수정 포인트: IndexedStack을 사용해 화면 전환
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _buildMonitoringScreen(), // 0번 탭: 모니터링 화면
+          const ZoneScreen(),       // 1번 탭: 구역 설정 화면
+          const HistoryScreen(),    // 2번 탭: 사건 내역 화면
+          const SettingsScreen(),   // 3번 탭: 환경 설정 화면
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
