@@ -24,22 +24,26 @@ services:
     depends_on:
       db:
         condition: service_healthy #healthcheck가 통과된 후에 app이 시작되도록 설정
+      mediamtx:
+        condition: service_started #mediamtx는 헬스체크가 없으므로 시작된 후에 app이 시작되도록 설정
     volumes:
       - ./app:/app
 
   pgadmin:
     image: dpage/pgadmin4
+    restart: always
     env_file:
       - .env
     ports:
       - "5050:80"
     depends_on:
       - db
+    
   mediamtx:
     image: bluenviron/mediamtx:latest
     ports:
       - "8554:8554"   # RTSP
-      - "8888:8888"
-
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml
 volumes:
   postgres_data:
