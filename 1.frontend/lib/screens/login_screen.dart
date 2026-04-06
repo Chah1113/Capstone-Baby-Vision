@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   // 환경변수 대신 상수로 베이스 URL 선언 (실제 API 주소로 변경 필요)
-  final String apiUrl = 'https://새로-발급받은-ngrok-주소.ngrok-free.dev'; 
+  final String apiUrl = 'http://localhost:8000'; 
 
   Future<void> _handleLogin() async {
     setState(() {
@@ -134,6 +135,24 @@ class _LoginScreenState extends State<LoginScreen> {
                         : const Text('로그인', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
+                const SizedBox(height: 16), // 버튼 사이의 여백
+                TextButton(
+                  onPressed: () {
+                    // 회원가입 화면으로 이동하는 코드
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SignupScreen()),
+                    );
+                  },
+                  child: const Text(
+                    '계정이 없으신가요? 회원가입',
+                    style: TextStyle(
+                      color: Color(0xFF003d9b), // 눈에 잘 띄게 파란색 적용
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                //
               ],
             ),
           ),
