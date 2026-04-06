@@ -16,7 +16,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isLoading = false;
 
   // 실제 서버 주소로 변경 필요
-  final String apiUrl = 'https://새로-발급받은-ngrok-주소.ngrok-free.dev';
+  final String apiUrl = 'https://succeedable-untabled-dewitt.ngrok-free.dev/';
 
   Future<void> _handleSignup() async {
     setState(() {
