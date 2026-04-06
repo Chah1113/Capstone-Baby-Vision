@@ -17,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   // 환경변수 대신 상수로 베이스 URL 선언 (실제 API 주소로 변경 필요)
-  final String apiUrl = 'https://succeedable-untabled-dewitt.ngrok-free.dev/api'; 
+  final String apiUrl = 'http://localhost:8000'; 
 
   Future<void> _handleLogin() async {
     setState(() {

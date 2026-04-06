@@ -18,7 +18,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isLoading = false;
 
   // ⚠️ 백엔드 서버 주소
-  final String apiUrl = 'https://succeedable-untabled-dewitt.ngrok-free.dev/api'; 
+  final String apiUrl = 'http://localhost:8000'; 
 
   Future<void> _handleSignup() async {
     // 빈 칸 검사
