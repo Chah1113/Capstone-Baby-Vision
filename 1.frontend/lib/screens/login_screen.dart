@@ -1,8 +1,10 @@
+// lib/screens/login_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
+import '../config.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,17 +18,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  // 환경변수 대신 상수로 베이스 URL 선언 (실제 API 주소로 변경 필요)
-  final String apiUrl = 'http://localhost:8000'; 
-
   Future<void> _handleLogin() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
+      // 🔥 백엔드 서버 주소를 AppConfig에서 가져옵니다.
       final response = await http.post(
-        Uri.parse('$apiUrl/users/login'),
+        Uri.parse('${AppConfig.baseUrl}/users/login'),
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': '69420'
@@ -44,9 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('eyeCatchToken', accessToken);
 
-        // 유저 정보 가져오기
+        // 🔥 여기도 ${AppConfig.baseUrl}을 사용합니다.
         final userResponse = await http.get(
-          Uri.parse('$apiUrl/users/me'),
+          Uri.parse('${AppConfig.baseUrl}/users/me'),
           headers: {
             'Authorization': 'Bearer $accessToken',
             'ngrok-skip-browser-warning': '69420'
@@ -135,10 +135,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         : const Text('로그인', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
-                const SizedBox(height: 16), // 버튼 사이의 여백
+                const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
-                    // 회원가입 화면으로 이동하는 코드
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const SignupScreen()),
@@ -147,12 +146,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text(
                     '계정이 없으신가요? 회원가입',
                     style: TextStyle(
-                      color: Color(0xFF003d9b), // 눈에 잘 띄게 파란색 적용
+                      color: Color(0xFF003d9b),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                //
               ],
             ),
           ),

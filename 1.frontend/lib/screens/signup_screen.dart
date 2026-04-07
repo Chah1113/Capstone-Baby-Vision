@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../config.dart'; 
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -17,9 +18,6 @@ class _SignupScreenState extends State<SignupScreen> {
   
   bool _isLoading = false;
 
-  // ⚠️ 백엔드 서버 주소
-  final String apiUrl = 'http://localhost:8000'; 
-
   Future<void> _handleSignup() async {
     // 빈 칸 검사
     if (_nameController.text.isEmpty || 
@@ -32,11 +30,11 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() {
       _isLoading = true;
     });
-
+    final String requestUrl = '${AppConfig.baseUrl}/users';
     try {
       // 백엔드 (FastAPI)의 POST /users/register 엔드포인트 호출
       final response = await http.post(
-        Uri.parse('$apiUrl/users/register'),
+        Uri.parse('$requestUrl'),
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': '69420', // ngrok 사용 시 필요한 헤더

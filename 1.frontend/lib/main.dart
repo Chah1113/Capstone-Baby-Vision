@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-// 🔥 구글 폰트 임포트 추가
 import 'package:google_fonts/google_fonts.dart'; 
 
 import 'screens/login_screen.dart';
@@ -44,29 +43,27 @@ class EyeCatchApp extends StatelessWidget {
           ],
           locale: const Locale('ko', 'KR'),
 
-          // 🔥 2. 라이트 테마에 폰트 적용
+          // 🔥 수정됨: Theme.of(context) 대신 ThemeData.light() 객체 사용 (에러 방지)
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF003d9b),
               brightness: Brightness.light,
             ),
             useMaterial3: true,
-            // Noto Sans KR 폰트를 전체 텍스트 테마에 적용
             textTheme: GoogleFonts.notoSansKrTextTheme(
-              Theme.of(context).textTheme,
+              ThemeData.light().textTheme,
             ),
           ),
 
-          // 다크 테마에 폰트 적용
+          // 🔥 수정됨: Theme.of(context) 대신 ThemeData.dark() 객체 사용 (에러 방지)
           darkTheme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF60a5fa),
               brightness: Brightness.dark,
             ),
             useMaterial3: true,
-            // 다크 모드용 Noto Sans KR 적용 (글씨 색상 반전을 위해 ThemeData 밝기 지정)
             textTheme: GoogleFonts.notoSansKrTextTheme(
-              ThemeData(brightness: Brightness.dark).textTheme,
+              ThemeData.dark().textTheme,
             ),
           ),
           

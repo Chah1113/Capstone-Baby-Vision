@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// 1. 만들어둔 다른 화면 파일들을 불러옵니다.
 import 'zone_screen.dart';
 import 'settings_screen.dart';
-import 'history_screen.dart'; // 사건 내역 화면 파일
+import 'history_screen.dart';
+import 'live_stream_screen.dart'; // [추가됨] 실시간 스트리밍 화면 임포트
+import '../services/alert_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -40,7 +41,7 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index; // 탭을 누르면 이 번호가 바뀝니다.
+      _selectedIndex = index;
     });
   }
 
@@ -56,8 +57,6 @@ class _MainScreenState extends State<MainScreen> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
-  // 2. 메인(모니터링) 화면을 별도의 위젯으로 분리했습니다.
-  // (ZoneScreen과 SettingsScreen이 자체 AppBar를 갖고 있어서 화면이 겹치지 않게 분리)
   Widget _buildMonitoringScreen() {
     return Scaffold(
       appBar: AppBar(
@@ -76,6 +75,22 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
+      // 임시 알람 테스트 버튼
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          // AlertService.triggerTestAlert(); // 서버 연결 시 활성화
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🚨 임시 테스트 알람이 발생했습니다!'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+        backgroundColor: Colors.redAccent,
+        icon: const Icon(Icons.add_alert, color: Colors.white),
+        label: const Text('알람 테스트', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -88,7 +103,11 @@ class _MainScreenState extends State<MainScreen> {
             const SizedBox(height: 16),
             GestureDetector(
               onTap: () {
-                // Navigator.pushNamed(context, '/live-stream');
+                // [수정됨] 화면 이동 코드 적용 (영상 화면으로 이동)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LiveStreamScreen()),
+                );
               },
               child: Container(
                 height: 200,
@@ -128,14 +147,13 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 3. 핵심 수정 포인트: IndexedStack을 사용해 화면 전환
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          _buildMonitoringScreen(), // 0번 탭: 모니터링 화면
-          const ZoneScreen(),       // 1번 탭: 구역 설정 화면
-          const HistoryScreen(),    // 2번 탭: 사건 내역 화면
-          const SettingsScreen(),   // 3번 탭: 환경 설정 화면
+          _buildMonitoringScreen(),
+          const ZoneScreen(),
+          const HistoryScreen(),
+          const SettingsScreen(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

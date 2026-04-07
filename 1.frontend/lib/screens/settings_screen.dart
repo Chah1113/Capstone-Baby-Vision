@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../main.dart'; // themeNotifier 사용을 위해 main.dart 임포트 
+import '../main.dart'; 
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -41,7 +41,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
   
-
   void _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('eyeCatchToken');
@@ -49,7 +48,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('안전하게 로그아웃 되었습니다.')));
-    // 네비게이션 스택을 모두 지우고 로그인 화면으로 이동
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
@@ -58,11 +56,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isDarkMode = value;
     });
-    // SharedPreferences에 저장
     await prefs.setString('theme', value ? 'dark' : 'light');
-    
-    // 🔥 전역 테마 상태 업데이트 (즉시 화면에 반영됨)
     themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+  }
+
+  void _showPasswordCheckDialog() {
+    final TextEditingController passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('비밀번호 확인'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('개인정보를 수정하려면 비밀번호를 다시 입력해주세요.', style: TextStyle(fontSize: 14)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: '비밀번호 (테스트: 1234)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // 🔥 수정됨: 임시 비밀번호 '1234'로 지정. 백엔드 연동 전까지 테스트용으로 사용
+                if (passwordController.text == '1234') {
+                  Navigator.pop(context); // 다이얼로그 닫기
+                  
+                  // 화면 이동 후, 되돌아왔을 때 _loadSettings()를 다시 호출하여 이름 갱신
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
+                  ).then((_) {
+                    _loadSettings(); 
+                  });
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('비밀번호가 일치하지 않습니다.')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF003d9b)),
+              child: const Text('확인', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -92,7 +144,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 프로필 섹션
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -142,15 +193,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 계정 관리 섹션
             const Text('계정 관리', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            _buildListTile(title: '보호자 정보 수정', subtitle: _profileName, icon: Icons.person),
+            _buildListTile(
+              title: '보호자 정보 수정', 
+              subtitle: _profileName, 
+              icon: Icons.person,
+              onTap: _showPasswordCheckDialog,
+            ),
             _buildListTile(title: '비상 연락처 (이메일)', subtitle: _profileEmail, icon: Icons.chevron_right),
             
             const SizedBox(height: 24),
             
-            // 환경 설정 섹션
             const Text('아이 안심 환경 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildToggleTile(
@@ -175,28 +229,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildListTile({required String title, required String subtitle, required IconData icon, IconData? leadingIcon}) {
+  Widget _buildListTile({required String title, required String subtitle, required IconData icon, IconData? leadingIcon, VoidCallback? onTap}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-      child: Row(
-        children: [
-          if (leadingIcon != null) ...[
-            Icon(leadingIcon, color: Colors.grey),
-            const SizedBox(width: 16),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              if (leadingIcon != null) ...[
+                Icon(leadingIcon, color: Colors.grey),
+                const SizedBox(width: 16),
               ],
-            ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Icon(icon, color: Colors.grey),
+            ],
           ),
-          Icon(icon, color: Colors.grey),
-        ],
+        ),
       ),
     );
   }
@@ -235,6 +295,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
             activeColor: Colors.blue[700],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// 🔥 수정됨: StatelessWidget에서 StatefulWidget으로 변경하여 데이터 저장 및 UI 갱신 로직 추가
+class ProfileEditScreen extends StatefulWidget {
+  const ProfileEditScreen({super.key});
+
+  @override
+  State<ProfileEditScreen> createState() => _ProfileEditScreenState();
+}
+
+class _ProfileEditScreenState extends State<ProfileEditScreen> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentInfo();
+  }
+
+  Future<void> _loadCurrentInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userDataString = prefs.getString('eyeCatchUser');
+    if (userDataString != null) {
+      final userData = jsonDecode(userDataString);
+      setState(() {
+        _nameController.text = userData['name'] ?? '보호자';
+      });
+    }
+  }
+
+  Future<void> _saveInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userDataString = prefs.getString('eyeCatchUser');
+    Map<String, dynamic> userData = {};
+    if (userDataString != null) {
+      userData = jsonDecode(userDataString);
+    }
+    
+    // 내부 저장소에 이름 업데이트 
+    userData['name'] = _nameController.text;
+    
+    // (추후 백엔드가 연결되면 여기서 서버 API를 호출하여 비밀번호 등도 변경 처리해야 합니다)
+    
+    await prefs.setString('eyeCatchUser', jsonEncode(userData));
+
+    if (!mounted) return;
+    
+    // 변경 완료 후 다이얼로그 닫기 및 알림
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('정보가 성공적으로 수정되었습니다.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('보호자 정보 수정', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: '이름 변경',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _passwordController,
+              decoration: const InputDecoration(
+                labelText: '새 비밀번호',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: _saveInfo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF003d9b),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              child: const Text('저장하기', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }
