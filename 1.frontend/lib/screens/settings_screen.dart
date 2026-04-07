@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import '../config.dart';
 import '../main.dart'; 
 
 class SettingsScreen extends StatefulWidget {
@@ -77,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  labelText: '비밀번호 (테스트: 1234)',
+                  labelText: '현재 비밀번호',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.lock),
                 ),
@@ -90,21 +92,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text('취소', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
-              onPressed: () {
-                // 🔥 수정됨: 임시 비밀번호 '1234'로 지정. 백엔드 연동 전까지 테스트용으로 사용
-                if (passwordController.text == '1234') {
-                  Navigator.pop(context); // 다이얼로그 닫기
-                  
-                  // 화면 이동 후, 되돌아왔을 때 _loadSettings()를 다시 호출하여 이름 갱신
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
-                  ).then((_) {
-                    _loadSettings(); 
-                  });
-                } else {
+              // async 추가
+              onPressed: () async {
+                final password = passwordController.text;
+                if (password.isEmpty) return;
+
+                try {
+                  // 기존 로그인 API를 활용하여 비밀번호가 맞는지 서버에 검증
+                  final response = await http.post(
+                    Uri.parse('${AppConfig.baseUrl}/users/login'),
+                    headers: {'Content-Type': 'application/json'},
+                    body: jsonEncode({
+                      'email': _profileEmail,
+                      'password': password
+                    }),
+                  );
+
+                  if (!context.mounted) return;
+
+                  if (response.statusCode == 200) {
+                    Navigator.pop(context); // 다이얼로그 닫기
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
+                    ).then((_) {
+                      _loadSettings(); 
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('비밀번호가 일치하지 않습니다.')),
+                    );
+                  }
+                } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('비밀번호가 일치하지 않습니다.')),
+                    const SnackBar(content: Text('서버와 연결할 수 없습니다.')),
                   );
                 }
               },
@@ -331,26 +352,65 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   Future<void> _saveInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    final userDataString = prefs.getString('eyeCatchUser');
-    Map<String, dynamic> userData = {};
-    if (userDataString != null) {
-      userData = jsonDecode(userDataString);
-    }
-    
-    // 내부 저장소에 이름 업데이트 
-    userData['name'] = _nameController.text;
-    
-    // (추후 백엔드가 연결되면 여기서 서버 API를 호출하여 비밀번호 등도 변경 처리해야 합니다)
-    
-    await prefs.setString('eyeCatchUser', jsonEncode(userData));
+    final token = prefs.getString('eyeCatchToken'); // 저장된 토큰 가져오기
 
-    if (!mounted) return;
-    
-    // 변경 완료 후 다이얼로그 닫기 및 알림
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('정보가 성공적으로 수정되었습니다.')),
-    );
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('로그인 정보가 없습니다.')));
+      return;
+    }
+
+    final newName = _nameController.text.trim();
+    final newPassword = _passwordController.text.trim();
+
+    // 보낼 데이터 구성 (빈 값이 아니면 변경사항에 포함)
+    Map<String, dynamic> updateData = {};
+    if (newName.isNotEmpty) updateData['name'] = newName;
+    if (newPassword.isNotEmpty) updateData['password'] = newPassword;
+
+    if (updateData.isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('변경된 내용이 없습니다.')));
+       return;
+    }
+
+    try {
+      // 위에서 생성한 백엔드 API (PUT /users/me) 호출
+      final response = await http.put(
+        Uri.parse('${AppConfig.baseUrl}/users/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(updateData),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        // 서버 업데이트 성공 시, 내부 저장소의 유저 이름도 업데이트
+        final userDataString = prefs.getString('eyeCatchUser');
+        if (userDataString != null) {
+          Map<String, dynamic> userData = jsonDecode(userDataString);
+          if (newName.isNotEmpty) {
+            userData['name'] = newName;
+            await prefs.setString('eyeCatchUser', jsonEncode(userData));
+          }
+        }
+        
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('정보가 성공적으로 수정되었습니다.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('정보 수정에 실패했습니다.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('서버와의 통신에 실패했습니다.')),
+      );
+    }
   }
 
   @override
