@@ -110,8 +110,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF003d9b)),
-            child: const Text('확인', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              // 하드코딩 제거, 테마 primary 색상 사용
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            ),
+            child: Text('확인', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
           ),
         ],
       ),
@@ -120,15 +123,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.home, color: Color(0xFF003d9b)),
-            SizedBox(width: 8),
+            Icon(Icons.home, color: colorScheme.primary),
+            const SizedBox(width: 8),
             Text('Eye Catch',
-                style: TextStyle(color: Color(0xFF003d9b), fontWeight: FontWeight.bold)),
+                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
@@ -154,10 +159,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor, // 다크모드에 맞춰 자동 변환
                 borderRadius: BorderRadius.circular(32),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+                  BoxShadow(
+                    // 그림자 색상도 다크모드에서는 연하게 처리
+                    color: Theme.of(context).shadowColor.withOpacity(0.05),
+                    blurRadius: 10
+                  )
                 ],
               ),
               child: Column(
@@ -170,14 +179,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
                   Text('$_profileName 보호자님',
                       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  const Text('맘앤대디 안심 계정', style: TextStyle(color: Colors.grey)),
+                  Text('맘앤대디 안심 계정', style: TextStyle(color: colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildBadge('패밀리 리더', Colors.blue[50]!, Colors.blue[800]!),
+                      _buildBadge(context, '패밀리 리더', isPrimary: true),
                       const SizedBox(width: 8),
-                      _buildBadge('관리자 권한', Colors.grey[200]!, Colors.black54),
+                      _buildBadge(context, '관리자 권한', isPrimary: false),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -186,8 +195,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: const Icon(Icons.logout),
                     label: const Text('로그아웃', style: TextStyle(fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF003d9b),
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       minimumSize: const Size(double.infinity, 48),
                     ),
                   ),
@@ -198,12 +207,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Text('계정 관리', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildListTile(
+              context: context,
               title: '보호자 정보 수정',
               subtitle: _profileName,
               icon: Icons.person,
               onTap: _showPasswordCheckDialog,
             ),
             _buildListTile(
+              context: context,
               title: '비상 연락처 (이메일)',
               subtitle: _profileEmail,
               icon: Icons.chevron_right,
@@ -213,6 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildToggleTile(
+              context: context,
               title: '아이 활동 알림',
               subtitle: '위험 구역 접근 및 울음소리 감지 시 즉시 알림',
               icon: Icons.notifications_active,
@@ -220,6 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: (val) => setState(() => _isAlertOn = val),
             ),
             _buildToggleTile(
+              context: context,
               title: '야간 모드 (다크)',
               subtitle: '어두운 방에서 모니터링 시 눈 보호',
               icon: Icons.dark_mode,
@@ -227,12 +240,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: _toggleDarkMode,
             ),
             _buildListTile(
+              context: context,
               title: '앱 언어 설정',
               subtitle: '한국어 (Korean)',
               leadingIcon: Icons.language,
               icon: Icons.chevron_right,
             ),
             _buildListTile(
+              context: context,
               title: '성장 기록 및 추억 저장소',
               subtitle: '감지된 활동 영상 90일 보관',
               leadingIcon: Icons.favorite,
@@ -244,25 +259,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildBadge(String text, Color bgColor, Color textColor) {
+  // 색상을 테마 기반으로 변경
+  Widget _buildBadge(BuildContext context, String text, {bool isPrimary = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: isPrimary ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16)
+      ),
       child: Text(text,
-          style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.bold)),
+          style: TextStyle(
+            color: isPrimary ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
+            fontSize: 12,
+            fontWeight: FontWeight.bold
+          )),
     );
   }
 
   Widget _buildListTile({
+    required BuildContext context,
     required String title,
     required String subtitle,
     required IconData icon,
     IconData? leadingIcon,
     VoidCallback? onTap,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor, // 자동으로 테마에 맞춤
+        borderRadius: BorderRadius.circular(16)
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -271,7 +300,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Row(
             children: [
               if (leadingIcon != null) ...[
-                Icon(leadingIcon, color: Colors.grey),
+                Icon(leadingIcon, color: colorScheme.onSurfaceVariant),
                 const SizedBox(width: 16),
               ],
               Expanded(
@@ -280,11 +309,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Text(title,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(subtitle, style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
                   ],
                 ),
               ),
-              Icon(icon, color: Colors.grey),
+              Icon(icon, color: colorScheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -293,25 +322,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildToggleTile({
+    required BuildContext context,
     required String title,
     required String subtitle,
     required IconData icon,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor, 
+        borderRadius: BorderRadius.circular(16)
+      ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: value ? Colors.blue[50] : Colors.grey[100],
+              color: value ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: value ? Colors.blue[700] : Colors.grey),
+            child: Icon(icon, color: value ? colorScheme.primary : colorScheme.onSurfaceVariant),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -320,11 +354,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Text(title,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(subtitle, style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeColor: Colors.blue[700]),
+          Switch(value: value, onChanged: onChanged, activeColor: colorScheme.primary),
         ],
       ),
     );
@@ -339,6 +373,7 @@ class ProfileEditScreen extends StatefulWidget {
 }
 
 class _ProfileEditScreenState extends State<ProfileEditScreen> {
+  // ... 기존과 동일하게 유지
   final _nameController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -365,6 +400,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Future<void> _saveInfo() async {
+    // ... 기존 로직과 완전 동일
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('eyeCatchToken');
     if (token == null) {
@@ -421,6 +457,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('보호자 정보 수정', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -445,8 +483,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             ElevatedButton(
               onPressed: _saveInfo,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF003d9b),
-                foregroundColor: Colors.white,
+                backgroundColor: colorScheme.primary, // 테마 색상 적용
+                foregroundColor: colorScheme.onPrimary,
                 minimumSize: const Size(double.infinity, 50),
               ),
               child: const Text('저장하기', style: TextStyle(fontWeight: FontWeight.bold)),

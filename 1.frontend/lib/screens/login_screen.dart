@@ -115,13 +115,35 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SignupScreen()),
-                  ),
-                  child: const Text(
+                  onPressed: () {
+                    // 커스텀 트랜지션 적용 (Slide & Fade)
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => const SignupScreen(),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          const begin = Offset(1.0, 0.0); // 우측에서 시작
+                          const end = Offset.zero;        // 제자리
+                          const curve = Curves.easeInOutQuart; // 부드러운 가감속 커브
+
+                          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                          var offsetAnimation = animation.drive(tween);
+
+                          return SlideTransition(
+                            position: offsetAnimation,
+                            child: FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            ),
+                          );
+                        },
+                        transitionDuration: const Duration(milliseconds: 500), // 전환 속도 조절
+                      ),
+                    );
+                  },
+                  child: Text(
                     '계정이 없으신가요? 회원가입',
-                    style: TextStyle(color: Color(0xFF003d9b), fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
