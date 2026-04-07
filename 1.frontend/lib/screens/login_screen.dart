@@ -1,4 +1,3 @@
-// lib/screens/login_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -14,22 +13,19 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
 
   Future<void> _handleLogin() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // 🔥 백엔드 서버 주소를 AppConfig에서 가져옵니다.
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/users/login'),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': '69420'
+          'ngrok-skip-browser-warning': '69420',
         },
         body: jsonEncode({
           'email': _emailController.text,
@@ -39,24 +35,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final accessToken = data['access_token'];
-
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('eyeCatchToken', accessToken);
+        await prefs.setString('eyeCatchToken', data['access_token']);
 
-        // 🔥 여기도 ${AppConfig.baseUrl}을 사용합니다.
         final userResponse = await http.get(
           Uri.parse('${AppConfig.baseUrl}/users/me'),
           headers: {
-            'Authorization': 'Bearer $accessToken',
-            'ngrok-skip-browser-warning': '69420'
+            'Authorization': 'Bearer ${data['access_token']}',
+            'ngrok-skip-browser-warning': '69420',
           },
         );
 
         if (userResponse.statusCode == 200) {
           final userData = jsonDecode(userResponse.body);
           await prefs.setString('eyeCatchUser', jsonEncode(userData));
-          
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('${userData['name']}님, 환영합니다!')),
@@ -70,9 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       _showError('서버와 통신할 수 없습니다.');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -94,30 +84,18 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Icon(Icons.child_care, size: 64, color: Color(0xFF003d9b)),
                 const SizedBox(height: 16),
-                const Text(
-                  'Eye Catch',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '우리 아이를 지키는 스마트한 시선',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                const Text('Eye Catch', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                const Text('우리 아이를 지키는 스마트한 시선', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 48),
                 TextField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: '이메일 주소',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: '이메일 주소', border: OutlineInputBorder()),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: '비밀번호',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: '비밀번호', border: OutlineInputBorder()),
                   obscureText: true,
                 ),
                 const SizedBox(height: 24),
@@ -137,18 +115,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const SignupScreen()),
-                    );
-                  },
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SignupScreen()),
+                  ),
                   child: const Text(
                     '계정이 없으신가요? 회원가입',
-                    style: TextStyle(
-                      color: Color(0xFF003d9b),
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: Color(0xFF003d9b), fontWeight: FontWeight.bold),
                   ),
                 ),
               ],

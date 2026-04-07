@@ -5,8 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'zone_screen.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
-import 'live_stream_screen.dart'; // [추가됨] 실시간 스트리밍 화면 임포트
-import '../services/alert_service.dart';
+import 'live_stream_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -30,30 +29,22 @@ class _MainScreenState extends State<MainScreen> {
     final userDataString = prefs.getString('eyeCatchUser');
     if (userDataString != null) {
       final userData = jsonDecode(userDataString);
-      setState(() {
-        _userName = userData['name'] ?? '보호자';
-      });
+      setState(() => _userName = userData['name'] ?? '보호자');
     } else {
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
-  void _handleLogout() async {
+  Future<void> _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('eyeCatchToken');
     await prefs.remove('eyeCatchUser');
-    
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('안전하게 로그아웃 되었습니다.')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('안전하게 로그아웃 되었습니다.')));
     Navigator.pushReplacementNamed(context, '/login');
   }
 
@@ -69,16 +60,11 @@ class _MainScreenState extends State<MainScreen> {
               child: Text('$_userName 보호자님', style: const TextStyle(fontSize: 14)),
             ),
           ),
-          TextButton(
-            onPressed: _handleLogout,
-            child: const Text('로그아웃'),
-          ),
+          TextButton(onPressed: _handleLogout, child: const Text('로그아웃')),
         ],
       ),
-      // 임시 알람 테스트 버튼
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          // AlertService.triggerTestAlert(); // 서버 연결 시 활성화
+        onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('🚨 임시 테스트 알람이 발생했습니다!'),
@@ -89,26 +75,22 @@ class _MainScreenState extends State<MainScreen> {
         },
         backgroundColor: Colors.redAccent,
         icon: const Icon(Icons.add_alert, color: Colors.white),
-        label: const Text('알람 테스트', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text('알람 테스트',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '실시간 아이방 상황',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+            const Text('실시간 아이방 상황',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             GestureDetector(
-              onTap: () {
-                // [수정됨] 화면 이동 코드 적용 (영상 화면으로 이동)
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LiveStreamScreen()),
-                );
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LiveStreamScreen()),
+              ),
               child: Container(
                 height: 200,
                 width: double.infinity,
@@ -116,7 +98,8 @@ class _MainScreenState extends State<MainScreen> {
                   color: Colors.black,
                   borderRadius: BorderRadius.circular(16),
                   image: const DecorationImage(
-                    image: NetworkImage('https://images.unsplash.com/photo-1596131398991-b94f928d85a1?auto=format&fit=crop&q=80'),
+                    image: NetworkImage(
+                        'https://images.unsplash.com/photo-1596131398991-b94f928d85a1?auto=format&fit=crop&q=80'),
                     fit: BoxFit.cover,
                     opacity: 0.6,
                   ),
@@ -133,9 +116,7 @@ class _MainScreenState extends State<MainScreen> {
                 title: const Text('아이방 움직임 감지 (주의)'),
                 subtitle: const Text('구역 1: 침대 주변 (방금 전)'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  // Navigator.pushNamed(context, '/incident-details');
-                },
+                onTap: () {},
               ),
             ),
           ],
@@ -158,7 +139,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.videocam), label: '모니터링'),
           BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: '구역'),
           BottomNavigationBarItem(icon: Icon(Icons.warning), label: '사건 내역'),
