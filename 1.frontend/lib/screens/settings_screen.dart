@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../main.dart'; // themeNotifier 사용을 위해 main.dart 임포트 
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -39,6 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isDarkMode = prefs.getString('theme') == 'dark';
     });
   }
+  
 
   void _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -56,8 +58,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isDarkMode = value;
     });
+    // SharedPreferences에 저장
     await prefs.setString('theme', value ? 'dark' : 'light');
-    // 실제 앱 테마 변경은 Provider나 Riverpod 등의 상태 관리를 통해 MaterialApp에 전달해야 합니다.
+    
+    // 🔥 전역 테마 상태 업데이트 (즉시 화면에 반영됨)
+    themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
   }
 
   @override
