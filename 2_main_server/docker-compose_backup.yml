@@ -7,6 +7,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+
+# 데이터베이스가 준비될 때까지 기다리는 헬스체크 추가
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
       interval: 5s
@@ -18,28 +20,26 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000"   # FastAPI
-      - "8554:8554"   # RTSP (MediaMTX 내장)
-    environment:
-      - CAMERA_SOURCE=0  # 웹캠 (변경 가능)
+      - "8000:8000"
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy #healthcheck가 통과된 후에 app이 시작되도록 설정
     volumes:
       - ./app:/app
-    devices:
-      - /dev/video0:/dev/video0  # 웹캠 접근 (리눅스/Mac)
-    # Windows에서는 devices 주석 처리
 
   pgadmin:
     image: dpage/pgadmin4
-    restart: always
     env_file:
       - .env
     ports:
       - "5050:80"
     depends_on:
       - db
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    ports:
+      - "8554:8554"   # RTSP
+      - "8888:8888"
 
 volumes:
   postgres_data:
