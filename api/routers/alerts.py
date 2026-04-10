@@ -1,21 +1,12 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from db.base import AsyncSessionLocal
+from deps import get_db, get_current_user_id
 from db.models import Alert, DetectionEvent
-from core.security import decode_access_token
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
-
-def get_current_user_id(authorization: str = Header(...)) -> int:
-    token = authorization.replace("Bearer ", "")
-    payload = decode_access_token(token)
-    return int(payload.get("sub"))
 
 @router.get("")
 async def get_alerts(
@@ -42,6 +33,7 @@ async def get_alerts(
         }
         for a in alerts
     ]
+
 
 @router.patch("/{alert_id}/read")
 async def mark_as_read(
