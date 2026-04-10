@@ -41,6 +41,13 @@ async def create_camera(
     await db.refresh(camera)
     return {"id": camera.id, "name": camera.name, "stream_url": camera.stream_url}
 
+@router.get("/internal")
+async def get_all_cameras_internal(db: AsyncSession = Depends(get_db)):
+    """vision 서비스 전용 — 인증 없이 전체 카메라 목록 반환 (Docker 내부 네트워크 전용)"""
+    result = await db.execute(select(Camera).where(Camera.is_active == True))
+    cameras = result.scalars().all()
+    return [{"id": c.id, "name": c.name, "stream_url": c.stream_url} for c in cameras]
+
 @router.get("")
 async def get_cameras(
     db: AsyncSession = Depends(get_db),
