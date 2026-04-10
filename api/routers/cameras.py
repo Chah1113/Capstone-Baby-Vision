@@ -1,26 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from db.base import AsyncSessionLocal
+from deps import get_db, get_current_user_id
 from db.models import Camera
-from pydantic import BaseModel
-from core.security import decode_access_token
+from schemas.cameras import CameraCreate
 import uuid
 import os
 
 router = APIRouter(prefix="/cameras", tags=["cameras"])
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
-
-def get_current_user_id(authorization: str = Header(...)) -> int:
-    token = authorization.replace("Bearer ", "")
-    payload = decode_access_token(token)
-    return int(payload.get("sub"))
-
-class CameraCreate(BaseModel):
-    name: str  # stream_url 제거
 
 @router.post("")
 async def create_camera(
@@ -29,7 +17,7 @@ async def create_camera(
     user_id: int = Depends(get_current_user_id)
 ):
     server_host = os.getenv("SERVER_HOST", "localhost")
-    stream_url = f"rtsp://{server_host}:8554/{uuid.uuid4()}"  # 자동 생성
+    stream_url = f"rtsp://{server_host}:8554/{uuid.uuid4()}"
 
     camera = Camera(
         user_id=user_id,
@@ -41,6 +29,15 @@ async def create_camera(
     await db.refresh(camera)
     return {"id": camera.id, "name": camera.name, "stream_url": camera.stream_url}
 
+
+@router.get("/internal")
+async def get_all_cameras_internal(db: AsyncSession = Depends(get_db)):
+    """vision 서비스 전용 — 인증 없이 전체 카메라 목록 반환 (Docker 내부 네트워크 전용)"""
+    result = await db.execute(select(Camera).where(Camera.is_active == True))
+    cameras = result.scalars().all()
+    return [{"id": c.id, "name": c.name, "stream_url": c.stream_url} for c in cameras]
+
+
 @router.get("")
 async def get_cameras(
     db: AsyncSession = Depends(get_db),
@@ -48,7 +45,8 @@ async def get_cameras(
 ):
     result = await db.execute(select(Camera).where(Camera.user_id == user_id))
     cameras = result.scalars().all()
-    return cameras
+    return [{"id": c.id, "name": c.name, "stream_url": c.stream_url} for c in cameras]
+
 
 @router.delete("/{camera_id}")
 async def delete_camera(

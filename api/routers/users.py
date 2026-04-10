@@ -1,20 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from db.base import AsyncSessionLocal
+from deps import get_db
 from db.models import User
 from schemas.users import UserCreate, UserLogin, TokenResponse
 from core.security import hash_password, verify_password, create_access_token, decode_access_token
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
 
 @router.post("/register")
 async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
-    # 이메일 중복 확인
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="이미 존재하는 이메일이에요")
@@ -29,6 +25,7 @@ async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(user)
     return {"id": user.id, "email": user.email}
 
+
 @router.post("/login", response_model=TokenResponse)
 async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
@@ -39,6 +36,7 @@ async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
 
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token}
+
 
 @router.get("/me")
 async def get_me(
