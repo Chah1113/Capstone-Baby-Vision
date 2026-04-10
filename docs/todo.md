@@ -1,5 +1,27 @@
 # 향후 구현 사항
 
+## 0. 실제 모델 파일 교체 (best.pt 준비되면)
+
+현재 `yolov8n.pt` (COCO 기본 모델)로 파이프라인 동작 테스트 중.
+baby/adult 실제 구분이 필요하면 아래 두 곳을 수정한다.
+
+**1. `docker-compose.yml` — vision 환경변수 추가:**
+```yaml
+- MODEL_PATH=weights/best.pt
+```
+그리고 `vision/weights/best.pt` 에 모델 파일 배치.
+
+**2. `vision/models/detector.py` — class_names 원복:**
+```python
+# 현재 (테스트용)
+self.class_names = {0: "baby", 1: "adult"}
+
+# best.pt 사용 시 학습 데이터 기준으로 수정
+self.class_names = {0: "adult", 1: "baby"}
+```
+
+---
+
 ## 1. 스냅샷 저장
 
 위험 감지 시 해당 프레임 이미지를 파일로 저장하는 기능.

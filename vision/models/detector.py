@@ -21,8 +21,9 @@ class PersonDetector:
         """
         self.model = YOLO(model_path)
         self.confidence = confidence
-        # 학습 데이터의 클래스 매핑 (학습 후 수정 필요)
-        self.class_names = {0: "adult", 1: "baby"}
+        # best.pt: {0: "adult", 1: "baby"}
+        # yolov8n.pt (테스트용 기본 모델): COCO class 0 = person → "baby"로 매핑해 파이프라인 동작 확인
+        self.class_names = {0: "baby", 1: "adult"}
 
     def detect(self, frame: np.ndarray) -> List[Dict]:
         """

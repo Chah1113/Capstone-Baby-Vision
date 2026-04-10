@@ -29,8 +29,6 @@ async def create_danger_zone(
     return {"id": zone.id, "camera_id": zone.camera_id, "label": zone.label, "zone_points": zone.zone_points}
 
 
-# NOTE: /internal/{camera_id}는 반드시 /{camera_id}보다 먼저 등록되어야 함.
-# FastAPI는 등록 순서대로 매칭하므로 순서가 바뀌면 "internal"이 camera_id로 해석됨.
 @router.get("/internal/{camera_id}")
 async def get_zones_internal(camera_id: int, db: AsyncSession = Depends(get_db)):
     """vision 서비스 전용 — 인증 없이 특정 카메라의 위험구역 반환 (Docker 내부 네트워크 전용)"""
