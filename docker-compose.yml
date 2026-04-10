@@ -31,12 +31,6 @@ services:
     build: ./vision
     env_file:
       - .env
-    environment:
-      # 카메라 등록 후 GET /cameras 응답의 stream_url에서 UUID 확인
-      # 예: rtsp://mediamtx:8554/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-      - RTSP_URL=rtsp://mediamtx:8554/{스트림경로}
-      # 카메라 등록 후 GET /cameras 응답의 id 값
-      - CAMERA_ID=1
     depends_on:
       api:
         condition: service_started
