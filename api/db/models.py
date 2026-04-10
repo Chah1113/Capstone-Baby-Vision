@@ -47,6 +47,8 @@ class DetectionEvent(Base):
     id            = Column(Integer, primary_key=True)
     camera_id     = Column(Integer, ForeignKey("cameras.id", ondelete="CASCADE"))
     event_type    = Column(String(50), nullable=False)
+    zone_id       = Column(String(100))
+    zone_name     = Column(String(100))
     confidence    = Column(Float)
     bbox          = Column(JSONB)
     snapshot_path = Column(String(255))
