@@ -14,8 +14,8 @@ from utils.drawing import draw_detections, draw_zones, draw_warning_banner
 
 # ========== 설정 (환경에 맞게 수정) ==========
 RTSP_URL = os.getenv("RTSP_URL", "")                          # MediaMTX RTSP 스트림 URL
+CAMERA_ID = int(os.getenv("CAMERA_ID", "0"))                  # 카메라 등록 후 GET /cameras의 id
 MODEL_PATH = "weights/best.pt"                                 # YOLO 모델 경로
-BRIDGE_EVENT_URL = os.getenv("BRIDGE_EVENT_URL", "http://localhost:9000/event")
 MAIN_SERVER_URL = os.getenv("MAIN_SERVER_URL", "http://api:8000")
 ALERT_COOLDOWN = 5                                             # 같은 구역 재알림 대기 시간(초)
 SHOW_DISPLAY = os.getenv("SHOW_DISPLAY", "false").lower() == "true"  # Docker에서는 False
@@ -33,12 +33,12 @@ def fetch_zones_from_server() -> list:
         return []
 
 
-def send_alert_to_bridge(event: dict):
-    """브릿지 서비스로 위험 감지 이벤트를 전송한다."""
+def send_event_to_api(event: dict):
+    """API 서버로 위험 감지 이벤트를 전송한다."""
     try:
-        requests.post(BRIDGE_EVENT_URL, json=event, timeout=3)
+        requests.post(f"{MAIN_SERVER_URL}/events", json=event, timeout=3)
     except Exception as e:
-        print(f"[경고] 브릿지 이벤트 전송 실패: {e}")
+        print(f"[경고] 이벤트 전송 실패: {e}")
 
 
 def main():
@@ -104,21 +104,15 @@ def main():
                     last_alert_time[zone.zone_id] = now
                     warning_message = f"WARNING: Baby in [{zone.name}]!"
 
-                    # 브릿지로 이벤트 전송
                     event = {
+                        "camera_id": CAMERA_ID,
                         "event_type": "ZONE_INTRUSION",
-                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                         "zone_id": zone.zone_id,
                         "zone_name": zone.name,
-                        "detections": [{
-                            "class_name": det["class_name"],
-                            "confidence": det["confidence"],
-                            "bbox": list(det["bbox"]),
-                            "center": list(det["center"]),
-                        }],
-                        "frame_id": frame_count,
+                        "confidence": det["confidence"],
+                        "bbox": list(det["bbox"]),
                     }
-                    send_alert_to_bridge(event)
+                    send_event_to_api(event)
                     print(f"[알림] {warning_message}")
 
         # 6. 시각화
