@@ -43,6 +43,20 @@ async def create_danger_zone(
     await db.refresh(zone)
     return zone
 
+@router.get("/internal")
+async def get_all_zones_internal(db: AsyncSession = Depends(get_db)):
+    """vision 서비스 전용 — 인증 없이 모든 위험구역 반환 (Docker 내부 네트워크 전용)"""
+    result = await db.execute(select(DangerZone))
+    zones = result.scalars().all()
+    return [
+        {
+            "zone_id": str(z.id),
+            "name": z.label or f"Zone {z.id}",
+            "points": z.zone_points,
+        }
+        for z in zones
+    ]
+
 @router.get("/{camera_id}")
 async def get_danger_zones(
     camera_id: int,

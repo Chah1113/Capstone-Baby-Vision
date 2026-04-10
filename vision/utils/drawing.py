@@ -5,7 +5,7 @@ OpenCV 시각화 유틸리티
 
 import cv2
 import numpy as np
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 
 # 색상 정의 (BGR)

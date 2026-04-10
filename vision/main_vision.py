@@ -5,7 +5,7 @@ EyeCatch AI Vision 메인 실행 스크립트
 
 import cv2
 import time
-import json
+import os
 import requests
 from models.detector import PersonDetector
 from core.zone_checker import ZoneManager
@@ -13,20 +13,21 @@ from utils.drawing import draw_detections, draw_zones, draw_warning_banner
 
 
 # ========== 설정 (환경에 맞게 수정) ==========
-CAMERA_SOURCE = 0                                  # 웹캠 번호 (0 = 기본 카메라)
-MODEL_PATH = "weights/best.pt"                     # YOLO 모델 경로
-BRIDGE_EVENT_URL = "http://localhost:9000/event"   # 브릿지 이벤트 수신 주소
-MAIN_SERVER_URL = "http://localhost:8000/api"      # 메인 서버 주소
-ALERT_COOLDOWN = 5                                 # 같은 구역 재알림 대기 시간(초)
+RTSP_URL = os.getenv("RTSP_URL", "")                          # MediaMTX RTSP 스트림 URL
+MODEL_PATH = "weights/best.pt"                                 # YOLO 모델 경로
+BRIDGE_EVENT_URL = os.getenv("BRIDGE_EVENT_URL", "http://localhost:9000/event")
+MAIN_SERVER_URL = os.getenv("MAIN_SERVER_URL", "http://api:8000")
+ALERT_COOLDOWN = 5                                             # 같은 구역 재알림 대기 시간(초)
+SHOW_DISPLAY = os.getenv("SHOW_DISPLAY", "false").lower() == "true"  # Docker에서는 False
 # =============================================
 
 
 def fetch_zones_from_server() -> list:
     """메인 서버에서 위험 구역 목록을 가져온다."""
     try:
-        response = requests.get(f"{MAIN_SERVER_URL}/zones", timeout=5)
-        data = response.json()
-        return data.get("zones", [])
+        response = requests.get(f"{MAIN_SERVER_URL}/danger-zones/internal", timeout=5)
+        response.raise_for_status()
+        return response.json()
     except Exception as e:
         print(f"[경고] 구역 정보 로드 실패: {e}")
         return []
@@ -55,9 +56,12 @@ def main():
     print(f"[정보] {len(zone_manager.zones)}개 구역 로드 완료")
 
     # 3. 카메라 열기
-    cap = cv2.VideoCapture(CAMERA_SOURCE)
+    if not RTSP_URL:
+        print("[오류] RTSP_URL 환경변수가 설정되지 않았습니다.")
+        return
+    cap = cv2.VideoCapture(RTSP_URL)
     if not cap.isOpened():
-        print("[오류] 카메라를 열 수 없습니다.")
+        print(f"[오류] RTSP 스트림에 연결할 수 없습니다: {RTSP_URL}")
         return
 
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -124,13 +128,14 @@ def main():
         if warning_message:
             draw_warning_banner(frame, warning_message)
 
-        cv2.imshow("EyeCatch AI Vision", frame)
-
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+        if SHOW_DISPLAY:
+            cv2.imshow("EyeCatch AI Vision", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
 
     cap.release()
-    cv2.destroyAllWindows()
+    if SHOW_DISPLAY:
+        cv2.destroyAllWindows()
     print("[종료] AI Vision 종료")
 
 
