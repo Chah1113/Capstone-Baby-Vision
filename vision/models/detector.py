@@ -5,7 +5,7 @@ YOLO 기반 객체 탐지 모듈
 
 from ultralytics import YOLO
 import numpy as np
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 
 class PersonDetector:

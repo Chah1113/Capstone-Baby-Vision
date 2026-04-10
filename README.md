@@ -80,6 +80,26 @@ EyeCatch/
     └── config.yaml         # 브릿지 라우팅 설정 파일
 ```
 
+## 환경별 실행 설정
+
+### SHOW_DISPLAY (vision 서비스 화면 출력)
+
+| 환경 | 설정값 | 설명 |
+|------|--------|------|
+| 로컬 테스트 | `SHOW_DISPLAY=true` | OpenCV 창으로 감지 화면 실시간 확인 가능 |
+| 서버 배포 | `SHOW_DISPLAY=false` (기본값) | 디스플레이 없는 서버/Docker 환경에서 필수 |
+
+> **⚠️ 서버에 올릴 때는 반드시 `SHOW_DISPLAY=false` (또는 설정 제거)** — `true` 상태로 배포하면 디스플레이가 없는 환경에서 vision 서비스가 즉시 크래시됩니다.
+
+**로컬 테스트 시** `docker-compose.yml`의 vision 서비스에 추가:
+```yaml
+vision:
+  environment:
+    - SHOW_DISPLAY=true
+```
+
+**서버 배포 시** 해당 줄 제거 또는 `SHOW_DISPLAY=false` 유지.
+
 ## 깃허브 규칙
 
 #### 1. 커밋 메시지는 정해진 규칙 따르기: 예) feat: 로그인 기능 추가, fix: 영상 끊김 버그 수정

@@ -4,7 +4,7 @@
 """
 
 from shapely.geometry import Point, Polygon
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 
 class DangerZone:
