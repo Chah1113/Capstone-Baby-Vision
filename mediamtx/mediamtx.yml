@@ -2,6 +2,17 @@ hlsAlwaysRemux: no
 rtspAddress: :8554
 api: yes
 apiAddress: :9997
+hls: yes
+hlsAddress: :8888
+
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: api
+      - action: read
+      - action: publish
 
 paths:
   all:
