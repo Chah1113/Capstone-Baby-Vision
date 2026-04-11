@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from deps import get_db
@@ -7,6 +8,8 @@ from schemas.users import UserCreate, UserLogin, TokenResponse
 from core.security import hash_password, verify_password, create_access_token, decode_access_token
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+_bearer = HTTPBearer()
 
 
 @router.post("/register")
@@ -40,11 +43,10 @@ async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me")
 async def get_me(
-    authorization: str = Header(...),
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     db: AsyncSession = Depends(get_db)
 ):
-    token = authorization.replace("Bearer ", "")
-    payload = decode_access_token(token)
+    payload = decode_access_token(credentials.credentials)
     user_id = int(payload.get("sub"))
 
     result = await db.execute(select(User).where(User.id == user_id))
