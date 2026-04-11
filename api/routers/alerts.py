@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from deps import get_db, get_current_user_id
-from db.models import Alert, DetectionEvent
+from db.models import Alert
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
