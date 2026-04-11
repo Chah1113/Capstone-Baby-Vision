@@ -80,7 +80,7 @@ def draw_warning_banner(frame: np.ndarray, message: str) -> None:
         frame: 원본 프레임
         message: 경고 메시지 (예: "⚠ 유아가 주방에 진입!")
     """
-    h, w = frame.shape[:2]
+    _, w = frame.shape[:2]
     cv2.rectangle(frame, (0, 0), (w, 50), COLOR_DANGER, -1)
     cv2.putText(frame, message, (10, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)

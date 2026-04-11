@@ -1,6 +1,5 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
 from db.base import AsyncSessionLocal
 from core.security import decode_access_token
 

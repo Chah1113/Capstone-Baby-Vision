@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from deps import get_db, get_current_user_id
 from db.models import User
-from schemas.users import UserCreate, UserLogin, TokenResponse
-from core.security import hash_password, verify_password, create_access_token
+from schemas.users import UserCreate, UserLogin, TokenResponse, RefreshRequest
+from core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_refresh_token
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -34,8 +34,25 @@ async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 틀렸어요")
 
-    token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token}
+    payload = {"sub": str(user.id)}
+    return {
+        "access_token": create_access_token(payload),
+        "refresh_token": create_refresh_token(payload),
+    }
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(body: RefreshRequest):
+    payload = decode_refresh_token(body.refresh_token)
+    sub = payload.get("sub")
+    if sub is None:
+        raise HTTPException(status_code=401, detail="유효하지 않은 리프레시 토큰이에요")
+
+    new_payload = {"sub": sub}
+    return {
+        "access_token": create_access_token(new_payload),
+        "refresh_token": create_refresh_token(new_payload),
+    }
 
 
 @router.get("/me")
