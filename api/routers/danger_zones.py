@@ -1,26 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from db.base import AsyncSessionLocal
+from deps import get_db, get_current_user_id
 from db.models import DangerZone, Camera
-from pydantic import BaseModel
-from core.security import decode_access_token
+from schemas.zones import DangerZoneCreate
 
 router = APIRouter(prefix="/danger-zones", tags=["danger_zones"])
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
 
-def get_current_user_id(authorization: str = Header(...)) -> int:
-    token = authorization.replace("Bearer ", "")
-    payload = decode_access_token(token)
-    return int(payload.get("sub"))
+async def _get_camera_or_404(camera_id: int, user_id: int, db: AsyncSession):
+    result = await db.execute(select(Camera).where(Camera.id == camera_id, Camera.user_id == user_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
 
-class DangerZoneCreate(BaseModel):
-    camera_id: int
-    label: str | None = None
-    zone_points: list
 
 @router.post("")
 async def create_danger_zone(
@@ -28,10 +20,7 @@ async def create_danger_zone(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    # 내 카메라인지 확인
-    result = await db.execute(select(Camera).where(Camera.id == body.camera_id, Camera.user_id == user_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
+    await _get_camera_or_404(body.camera_id, user_id, db)
 
     zone = DangerZone(
         camera_id=body.camera_id,
@@ -41,7 +30,23 @@ async def create_danger_zone(
     db.add(zone)
     await db.commit()
     await db.refresh(zone)
-    return zone
+    return {"id": zone.id, "camera_id": zone.camera_id, "label": zone.label, "zone_points": zone.zone_points}
+
+
+@router.get("/internal/{camera_id}")
+async def get_zones_internal(camera_id: int, db: AsyncSession = Depends(get_db)):
+    """vision 서비스 전용 — 인증 없이 특정 카메라의 위험구역 반환 (Docker 내부 네트워크 전용)"""
+    result = await db.execute(select(DangerZone).where(DangerZone.camera_id == camera_id))
+    zones = result.scalars().all()
+    return [
+        {
+            "zone_id": str(z.id),
+            "name": z.label or f"Zone {z.id}",
+            "points": z.zone_points,
+        }
+        for z in zones
+    ]
+
 
 @router.get("/{camera_id}")
 async def get_danger_zones(
@@ -49,14 +54,20 @@ async def get_danger_zones(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    # 내 카메라인지 확인
-    result = await db.execute(select(Camera).where(Camera.id == camera_id, Camera.user_id == user_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
+    await _get_camera_or_404(camera_id, user_id, db)
 
     result = await db.execute(select(DangerZone).where(DangerZone.camera_id == camera_id))
     zones = result.scalars().all()
-    return zones
+    return [
+        {
+            "id": z.id,
+            "camera_id": z.camera_id,
+            "label": z.label,
+            "zone_points": z.zone_points,
+        }
+        for z in zones
+    ]
+
 
 @router.delete("/{zone_id}")
 async def delete_danger_zone(
@@ -64,12 +75,16 @@ async def delete_danger_zone(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    result = await db.execute(select(DangerZone).where(DangerZone.id == zone_id))
+    result = await db.execute(
+        select(DangerZone)
+        .join(Camera, DangerZone.camera_id == Camera.id)
+        .where(DangerZone.id == zone_id, Camera.user_id == user_id)
+    )
     zone = result.scalar_one_or_none()
 
     if not zone:
         raise HTTPException(status_code=404, detail="위험구역을 찾을 수 없어요")
 
-    await db.delete(zone)
+    db.delete(zone)
     await db.commit()
     return {"detail": "삭제됐어요"}

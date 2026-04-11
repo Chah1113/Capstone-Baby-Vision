@@ -1,136 +1,212 @@
 """
 EyeCatch AI Vision 메인 실행 스크립트
-- 웹캠 영상 읽기 → YOLO 탐지 → 구역 침범 체크 → 브릿지로 이벤트 전송
+- API에서 카메라 목록을 주기적으로 확인 → 추가/제거된 카메라에 스레드 동적 관리
+- 화면 출력은 메인 스레드에서만 처리 (cv2 멀티스레드 안전)
 """
 
 import cv2
 import time
-import json
+import os
+import queue
+import threading
 import requests
 from models.detector import PersonDetector
 from core.zone_checker import ZoneManager
 from utils.drawing import draw_detections, draw_zones, draw_warning_banner
 
 
-# ========== 설정 (환경에 맞게 수정) ==========
-CAMERA_SOURCE = 0                                  # 웹캠 번호 (0 = 기본 카메라)
-MODEL_PATH = "weights/best.pt"                     # YOLO 모델 경로
-BRIDGE_EVENT_URL = "http://localhost:9000/event"   # 브릿지 이벤트 수신 주소
-MAIN_SERVER_URL = "http://localhost:8000/api"      # 메인 서버 주소
-ALERT_COOLDOWN = 5                                 # 같은 구역 재알림 대기 시간(초)
-# =============================================
+# ========== 설정 ==========
+MODEL_PATH           = os.getenv("MODEL_PATH", "yolov8n.pt")
+MAIN_SERVER_URL      = os.getenv("MAIN_SERVER_URL", "http://api:8000")
+MEDIAMTX_HOST        = os.getenv("MEDIAMTX_HOST", "mediamtx")
+ALERT_COOLDOWN       = 5   # 같은 구역 재알림 대기 시간(초)
+CAMERA_POLL_INTERVAL = 30  # 카메라 목록 갱신 주기(초)
+SHOW_DISPLAY         = os.getenv("SHOW_DISPLAY", "false").lower() == "true"
+# ==========================
 
 
-def fetch_zones_from_server() -> list:
-    """메인 서버에서 위험 구역 목록을 가져온다."""
+def fetch_all_cameras() -> list:
+    """API에서 활성 카메라 전체 목록을 가져오고 stream_url을 내부 호스트로 변환한다."""
     try:
-        response = requests.get(f"{MAIN_SERVER_URL}/zones", timeout=5)
-        data = response.json()
-        return data.get("zones", [])
+        response = requests.get(f"{MAIN_SERVER_URL}/cameras/internal", timeout=5)
+        response.raise_for_status()
+        cameras = response.json()
+        server_host = os.getenv("SERVER_HOST", "localhost")
+        for cam in cameras:
+            cam["stream_url"] = cam["stream_url"].replace(
+                f"://{server_host}:", f"://{MEDIAMTX_HOST}:"
+            )
+        return cameras
     except Exception as e:
-        print(f"[경고] 구역 정보 로드 실패: {e}")
+        print(f"[오류] 카메라 목록 조회 실패: {e}")
         return []
 
 
-def send_alert_to_bridge(event: dict):
-    """브릿지 서비스로 위험 감지 이벤트를 전송한다."""
+def fetch_zones_for_camera(camera_id: int) -> list:
+    """API에서 특정 카메라의 위험구역을 가져온다."""
     try:
-        requests.post(BRIDGE_EVENT_URL, json=event, timeout=3)
+        response = requests.get(f"{MAIN_SERVER_URL}/danger-zones/internal/{camera_id}", timeout=5)
+        response.raise_for_status()
+        return response.json()
     except Exception as e:
-        print(f"[경고] 브릿지 이벤트 전송 실패: {e}")
+        print(f"[경고] 구역 정보 로드 실패 (camera_id={camera_id}): {e}")
+        return []
 
 
-def main():
-    """메인 루프: 영상 캡처 → 탐지 → 구역 체크 → 알림"""
+def send_event_to_api(event: dict):
+    """API 서버로 위험 감지 이벤트를 전송한다."""
+    try:
+        requests.post(f"{MAIN_SERVER_URL}/events", json=event, timeout=3)
+    except Exception as e:
+        print(f"[경고] 이벤트 전송 실패: {e}")
 
-    # 1. 모델 로드
-    print("[시작] YOLO 모델 로딩...")
+
+def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Queue):
+    """단일 카메라 감지 루프 — 스레드로 실행된다.
+    - stop_event가 set되면 종료
+    - SHOW_DISPLAY=true 시 처리된 프레임을 frame_queue에 넣어 메인 스레드가 표시
+    """
+    camera_id   = camera["id"]
+    camera_name = camera["name"]
+    rtsp_url    = camera["stream_url"]
+
+    camera_zones = fetch_zones_for_camera(camera_id)
+    zone_manager = ZoneManager()
+    zone_manager.load_zones(camera_zones)
+    print(f"[{camera_name}] 위험구역 {len(zone_manager.zones)}개 로드")
+
     detector = PersonDetector(model_path=MODEL_PATH)
 
-    # 2. 위험 구역 로드
-    print("[시작] 위험 구역 로딩...")
-    zone_manager = ZoneManager()
-    raw_zones = fetch_zones_from_server()
-    zone_manager.load_zones(raw_zones)
-    print(f"[정보] {len(zone_manager.zones)}개 구역 로드 완료")
-
-    # 3. 카메라 열기
-    cap = cv2.VideoCapture(CAMERA_SOURCE)
+    cap = cv2.VideoCapture(rtsp_url)
     if not cap.isOpened():
-        print("[오류] 카메라를 열 수 없습니다.")
+        print(f"[{camera_name}] RTSP 연결 실패: {rtsp_url}")
         return
 
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    print(f"[정보] 카메라 해상도: {frame_width}x{frame_height}")
+    print(f"[{camera_name}] 감지 시작 ({frame_width}x{frame_height})")
 
-    # 알림 쿨다운 추적
     last_alert_time = {}
-    frame_count = 0
 
-    print("[시작] 실시간 감지 시작... (q 키로 종료)")
-
-    while True:
+    while not stop_event.is_set():
         ret, frame = cap.read()
         if not ret:
+            print(f"[{camera_name}] 스트림 끊김")
             break
 
-        frame_count += 1
-
-        # 4. 객체 탐지
         detections = detector.detect(frame)
-
-        # 5. 유아만 필터링 → 구역 침범 체크
         warning_message = None
 
         for det in detections:
-            if det["class_name"] != "baby":
+            if det["class_name"] != "person":
                 continue
 
             cx, cy = det["center"]
-            intruded_zones = zone_manager.check_intrusion(
-                cx, cy, frame_width, frame_height
-            )
+            intruded_zones = zone_manager.check_intrusion(cx, cy, frame_width, frame_height)
 
             for zone in intruded_zones:
                 now = time.time()
-                last_time = last_alert_time.get(zone.zone_id, 0)
-
-                if now - last_time > ALERT_COOLDOWN:
+                if now - last_alert_time.get(zone.zone_id, 0) > ALERT_COOLDOWN:
                     last_alert_time[zone.zone_id] = now
                     warning_message = f"WARNING: Baby in [{zone.name}]!"
 
-                    # 브릿지로 이벤트 전송
-                    event = {
+                    send_event_to_api({
+                        "camera_id": camera_id,
                         "event_type": "ZONE_INTRUSION",
-                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                         "zone_id": zone.zone_id,
                         "zone_name": zone.name,
-                        "detections": [{
-                            "class_name": det["class_name"],
-                            "confidence": det["confidence"],
-                            "bbox": list(det["bbox"]),
-                            "center": list(det["center"]),
-                        }],
-                        "frame_id": frame_count,
-                    }
-                    send_alert_to_bridge(event)
-                    print(f"[알림] {warning_message}")
+                        "confidence": det["confidence"],
+                        "bbox": list(det["bbox"]),
+                    })
+                    print(f"[{camera_name}] {warning_message}")
 
-        # 6. 시각화
-        draw_detections(frame, detections)
-        if raw_zones:
-            draw_zones(frame, raw_zones, frame_width, frame_height)
-        if warning_message:
-            draw_warning_banner(frame, warning_message)
-
-        cv2.imshow("EyeCatch AI Vision", frame)
-
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+        # 화면 출력용 프레임 준비 — 그리기만 하고 imshow는 메인 스레드에서
+        if SHOW_DISPLAY:
+            draw_detections(frame, detections)
+            if zone_manager.zones:
+                draw_zones(frame, camera_zones, frame_width, frame_height)
+            if warning_message:
+                draw_warning_banner(frame, warning_message)
+            # maxsize=1 큐: 최신 프레임만 유지 (가득 차 있으면 버림)
+            try:
+                frame_queue.put_nowait((camera_name, frame))
+            except queue.Full:
+                pass
 
     cap.release()
-    cv2.destroyAllWindows()
+    print(f"[{camera_name}] 스레드 종료")
+
+
+def watch_cameras(running: dict, lock: threading.Lock):
+    """카메라 목록을 주기적으로 확인하고 스레드를 동적으로 관리한다."""
+    while True:
+        try:
+            cameras = fetch_all_cameras()
+            active_ids = {c["id"]: c for c in cameras}
+
+            with lock:
+                # 새로 추가된 카메라 OR 죽은 스레드(스트림 끊김 등) → 스레드 시작
+                for camera_id, camera in active_ids.items():
+                    existing = running.get(camera_id)
+                    if existing is None or not existing[0].is_alive():
+                        stop_event = threading.Event()
+                        fq = queue.Queue(maxsize=1)
+                        t = threading.Thread(
+                            target=run_camera,
+                            args=(camera, stop_event, fq),
+                            daemon=True,
+                        )
+                        t.start()
+                        running[camera_id] = (t, stop_event, fq)
+                        print(f"[{'재시작' if existing else '추가'}] [{camera['name']}] 스레드 시작")
+
+                # 비활성/삭제된 카메라 → 스레드 종료
+                for camera_id in list(running.keys()):
+                    if camera_id not in active_ids:
+                        t, stop_event, _ = running.pop(camera_id)
+                        stop_event.set()
+                        t.join(timeout=5)  # 최대 5초 대기 후 리소스 정리 보장
+                        print(f"[제거] camera_id={camera_id} 스레드 종료")
+
+        except Exception as e:
+            print(f"[오류] watch_cameras 예외 발생: {e}")
+
+        time.sleep(CAMERA_POLL_INTERVAL)
+
+
+def main():
+    # camera_id → (thread, stop_event, frame_queue)
+    running: dict[int, tuple[threading.Thread, threading.Event, queue.Queue]] = {}
+    lock = threading.Lock()
+
+    print(f"[시작] 카메라 감지 시작 (갱신 주기: {CAMERA_POLL_INTERVAL}초)")
+
+    # 카메라 감시는 별도 스레드에서 실행
+    watcher = threading.Thread(target=watch_cameras, args=(running, lock), daemon=True)
+    watcher.start()
+
+    if SHOW_DISPLAY:
+        # 메인 스레드에서만 cv2 화면 출력 (스레드 안전)
+        print("[정보] 화면 출력 모드 — q 키로 종료")
+        while True:
+            with lock:
+                queues = [data[2] for data in running.values()]
+
+            for fq in queues:
+                try:
+                    camera_name, frame = fq.get_nowait()
+                    cv2.imshow(f"EyeCatch - {camera_name}", frame)
+                except queue.Empty:
+                    pass
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+        cv2.destroyAllWindows()
+    else:
+        # 서버 배포 모드 — watcher 스레드가 끝날 때까지 대기
+        watcher.join()
+
     print("[종료] AI Vision 종료")
 
 

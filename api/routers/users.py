@@ -1,20 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from db.base import AsyncSessionLocal
+from deps import get_db, get_current_user_id
 from db.models import User
-from schemas.users import UserCreate, UserLogin, TokenResponse
-from core.security import hash_password, verify_password, create_access_token, decode_access_token
+from schemas.users import UserCreate, UserLogin, TokenResponse, RefreshRequest
+from core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_refresh_token
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
 
 @router.post("/register")
 async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
-    # 이메일 중복 확인
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="이미 존재하는 이메일이에요")
@@ -29,6 +25,7 @@ async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(user)
     return {"id": user.id, "email": user.email}
 
+
 @router.post("/login", response_model=TokenResponse)
 async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
@@ -37,18 +34,32 @@ async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 틀렸어요")
 
-    token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token}
+    payload = {"sub": str(user.id)}
+    return {
+        "access_token": create_access_token(payload),
+        "refresh_token": create_refresh_token(payload),
+    }
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(body: RefreshRequest):
+    payload = decode_refresh_token(body.refresh_token)
+    sub = payload.get("sub")
+    if sub is None:
+        raise HTTPException(status_code=401, detail="유효하지 않은 리프레시 토큰이에요")
+
+    new_payload = {"sub": sub}
+    return {
+        "access_token": create_access_token(new_payload),
+        "refresh_token": create_refresh_token(new_payload),
+    }
+
 
 @router.get("/me")
 async def get_me(
-    authorization: str = Header(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
-    token = authorization.replace("Bearer ", "")
-    payload = decode_access_token(token)
-    user_id = int(payload.get("sub"))
-
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 

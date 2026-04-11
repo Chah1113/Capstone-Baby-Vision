@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, Float, Text, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-from datetime import datetime ,timezone
+from datetime import datetime, timezone
 from db.base import Base
 
 class User(Base):
@@ -47,9 +47,10 @@ class DetectionEvent(Base):
     id            = Column(Integer, primary_key=True)
     camera_id     = Column(Integer, ForeignKey("cameras.id", ondelete="CASCADE"))
     event_type    = Column(String(50), nullable=False)
+    zone_id       = Column(String(100))
+    zone_name     = Column(String(100))
     confidence    = Column(Float)
     bbox          = Column(JSONB)
-    snapshot_path = Column(String(255))
     detected_at   = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     camera = relationship("Camera", back_populates="detection_events")
