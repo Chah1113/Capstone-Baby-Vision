@@ -46,3 +46,7 @@ Thumbs.db
 *.log
 *.tmp
 runs/
+
+# ===== Claude Code =====
+CLAUDE.md
+.claude/
