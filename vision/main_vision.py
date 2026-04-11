@@ -16,7 +16,7 @@ from utils.drawing import draw_detections, draw_zones, draw_warning_banner
 
 
 # ========== 설정 ==========
-MODEL_PATH           = os.getenv("MODEL_PATH", "weights/best.pt")
+MODEL_PATH           = os.getenv("MODEL_PATH", "yolov8n.pt")
 MAIN_SERVER_URL      = os.getenv("MAIN_SERVER_URL", "http://api:8000")
 MEDIAMTX_HOST        = os.getenv("MEDIAMTX_HOST", "mediamtx")
 ALERT_COOLDOWN       = 5   # 같은 구역 재알림 대기 시간(초)
@@ -98,7 +98,7 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
         warning_message = None
 
         for det in detections:
-            if det["class_name"] != "baby":
+            if det["class_name"] != "person":
                 continue
 
             cx, cy = det["center"]

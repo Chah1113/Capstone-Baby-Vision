@@ -10,7 +10,7 @@ import numpy as np
 class PersonDetector:
     """YOLO 모델로 사람을 탐지하고 유아/성인을 분류하는 클래스"""
 
-    def __init__(self, model_path: str = "weights/best.pt", confidence: float = 0.5):
+    def __init__(self, model_path: str = "yolov8n.pt", confidence: float = 0.5):
         """
         모델 로드 및 초기화
 
@@ -21,7 +21,7 @@ class PersonDetector:
         self.model = YOLO(model_path)
         self.confidence = confidence
         # best.pt 기준: {0: "adult", 1: "baby"}
-        self.class_names = {0: "adult", 1: "baby"}
+        self.class_names = {0: "person"}
 
     def detect(self, frame: np.ndarray) -> list[dict]:
         """
