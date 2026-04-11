@@ -16,7 +16,7 @@ from utils.drawing import draw_detections, draw_zones, draw_warning_banner
 
 
 # ========== 설정 ==========
-MODEL_PATH           = os.getenv("MODEL_PATH", "yolov8n.pt")  # 기본: yolov8n 자동 다운로드 / 실제: weights/best.pt
+MODEL_PATH           = os.getenv("MODEL_PATH", "weights/best.pt")
 MAIN_SERVER_URL      = os.getenv("MAIN_SERVER_URL", "http://api:8000")
 MEDIAMTX_HOST        = os.getenv("MEDIAMTX_HOST", "mediamtx")
 ALERT_COOLDOWN       = 5   # 같은 구역 재알림 대기 시간(초)
@@ -144,9 +144,10 @@ def watch_cameras(running: dict, lock: threading.Lock):
         active_ids = {c["id"]: c for c in cameras}
 
         with lock:
-            # 새로 추가된 카메라 → 스레드 시작
+            # 새로 추가된 카메라 OR 죽은 스레드(스트림 끊김 등) → 스레드 시작
             for camera_id, camera in active_ids.items():
-                if camera_id not in running:
+                existing = running.get(camera_id)
+                if existing is None or not existing[0].is_alive():
                     stop_event = threading.Event()
                     fq = queue.Queue(maxsize=1)
                     t = threading.Thread(
@@ -156,7 +157,7 @@ def watch_cameras(running: dict, lock: threading.Lock):
                     )
                     t.start()
                     running[camera_id] = (t, stop_event, fq)
-                    print(f"[추가] [{camera['name']}] 스레드 시작")
+                    print(f"[{'재시작' if existing else '추가'}] [{camera['name']}] 스레드 시작")
 
             # 비활성/삭제된 카메라 → 스레드 종료
             for camera_id in list(running.keys()):

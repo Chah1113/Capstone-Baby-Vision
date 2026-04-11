@@ -62,7 +62,7 @@ def draw_zones(
             for p in zone["points"]
         ], dtype=np.int32)
 
-        cv2.fillPoly(overlay, [pts], (0, 0, 255, 50))
+        cv2.fillPoly(overlay, [pts], (0, 0, 255))
         cv2.polylines(frame, [pts], True, COLOR_ZONE, 2)
 
         # 구역 이름 표시

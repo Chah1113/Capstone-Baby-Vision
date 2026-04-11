@@ -1,9 +1,10 @@
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+from fastapi import HTTPException
 from datetime import datetime, timezone, timedelta
 import os
 
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24시간
 
@@ -22,4 +23,7 @@ def create_access_token(data: dict) -> str:
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_access_token(token: str) -> dict:
-    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰이에요")
