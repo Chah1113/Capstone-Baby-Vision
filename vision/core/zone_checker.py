@@ -4,13 +4,12 @@
 """
 
 from shapely.geometry import Point, Polygon
-from typing import List, Dict
 
 
 class DangerZone:
     """하나의 위험 구역을 표현하는 클래스"""
 
-    def __init__(self, zone_id: str, name: str, points: List[List[float]]):
+    def __init__(self, zone_id: str, name: str, points: list[list[float]]):
         """
         Args:
             zone_id: 구역 고유 ID
@@ -37,9 +36,9 @@ class ZoneManager:
     """여러 위험 구역을 관리하는 매니저 클래스"""
 
     def __init__(self):
-        self.zones: Dict[str, DangerZone] = {}
+        self.zones: dict[str, DangerZone] = {}
 
-    def load_zones(self, zone_list: List[Dict]):
+    def load_zones(self, zone_list: list[dict]):
         """
         서버에서 받은 구역 목록을 로드한다.
 
@@ -57,7 +56,7 @@ class ZoneManager:
 
     def check_intrusion(
         self, center_x: int, center_y: int, frame_width: int, frame_height: int
-    ) -> List[DangerZone]:
+    ) -> list[DangerZone]:
         """
         탐지된 객체의 중심점이 어떤 위험 구역에 들어갔는지 확인한다.
 

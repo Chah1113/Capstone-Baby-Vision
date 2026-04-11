@@ -16,7 +16,7 @@ from utils.drawing import draw_detections, draw_zones, draw_warning_banner
 
 
 # ========== 설정 ==========
-MODEL_PATH           = os.getenv("MODEL_PATH", "yolov8n.pt")  # 기본: yolov8n 자동 다운로드 / 실제: weights/best.pt
+MODEL_PATH           = os.getenv("MODEL_PATH", "weights/best.pt")
 MAIN_SERVER_URL      = os.getenv("MAIN_SERVER_URL", "http://api:8000")
 MEDIAMTX_HOST        = os.getenv("MEDIAMTX_HOST", "mediamtx")
 ALERT_COOLDOWN       = 5   # 같은 구역 재알림 대기 시간(초)
@@ -140,31 +140,36 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
 def watch_cameras(running: dict, lock: threading.Lock):
     """카메라 목록을 주기적으로 확인하고 스레드를 동적으로 관리한다."""
     while True:
-        cameras = fetch_all_cameras()
-        active_ids = {c["id"]: c for c in cameras}
+        try:
+            cameras = fetch_all_cameras()
+            active_ids = {c["id"]: c for c in cameras}
 
-        with lock:
-            # 새로 추가된 카메라 → 스레드 시작
-            for camera_id, camera in active_ids.items():
-                if camera_id not in running:
-                    stop_event = threading.Event()
-                    fq = queue.Queue(maxsize=1)
-                    t = threading.Thread(
-                        target=run_camera,
-                        args=(camera, stop_event, fq),
-                        daemon=True,
-                    )
-                    t.start()
-                    running[camera_id] = (t, stop_event, fq)
-                    print(f"[추가] [{camera['name']}] 스레드 시작")
+            with lock:
+                # 새로 추가된 카메라 OR 죽은 스레드(스트림 끊김 등) → 스레드 시작
+                for camera_id, camera in active_ids.items():
+                    existing = running.get(camera_id)
+                    if existing is None or not existing[0].is_alive():
+                        stop_event = threading.Event()
+                        fq = queue.Queue(maxsize=1)
+                        t = threading.Thread(
+                            target=run_camera,
+                            args=(camera, stop_event, fq),
+                            daemon=True,
+                        )
+                        t.start()
+                        running[camera_id] = (t, stop_event, fq)
+                        print(f"[{'재시작' if existing else '추가'}] [{camera['name']}] 스레드 시작")
 
-            # 비활성/삭제된 카메라 → 스레드 종료
-            for camera_id in list(running.keys()):
-                if camera_id not in active_ids:
-                    t, stop_event, _ = running.pop(camera_id)
-                    stop_event.set()
-                    t.join(timeout=5)  # 최대 5초 대기 후 리소스 정리 보장
-                    print(f"[제거] camera_id={camera_id} 스레드 종료")
+                # 비활성/삭제된 카메라 → 스레드 종료
+                for camera_id in list(running.keys()):
+                    if camera_id not in active_ids:
+                        t, stop_event, _ = running.pop(camera_id)
+                        stop_event.set()
+                        t.join(timeout=5)  # 최대 5초 대기 후 리소스 정리 보장
+                        print(f"[제거] camera_id={camera_id} 스레드 종료")
+
+        except Exception as e:
+            print(f"[오류] watch_cameras 예외 발생: {e}")
 
         time.sleep(CAMERA_POLL_INTERVAL)
 
@@ -185,9 +190,9 @@ def main():
         print("[정보] 화면 출력 모드 — q 키로 종료")
         while True:
             with lock:
-                queues = [(cid, data[2]) for cid, data in running.items()]
+                queues = [data[2] for data in running.values()]
 
-            for camera_id, fq in queues:
+            for fq in queues:
                 try:
                     camera_name, frame = fq.get_nowait()
                     cv2.imshow(f"EyeCatch - {camera_name}", frame)

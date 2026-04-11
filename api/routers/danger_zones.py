@@ -8,15 +8,19 @@ from schemas.zones import DangerZoneCreate
 router = APIRouter(prefix="/danger-zones", tags=["danger_zones"])
 
 
+async def _get_camera_or_404(camera_id: int, user_id: int, db: AsyncSession):
+    result = await db.execute(select(Camera).where(Camera.id == camera_id, Camera.user_id == user_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
+
+
 @router.post("")
 async def create_danger_zone(
     body: DangerZoneCreate,
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    result = await db.execute(select(Camera).where(Camera.id == body.camera_id, Camera.user_id == user_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
+    await _get_camera_or_404(body.camera_id, user_id, db)
 
     zone = DangerZone(
         camera_id=body.camera_id,
@@ -50,9 +54,7 @@ async def get_danger_zones(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    result = await db.execute(select(Camera).where(Camera.id == camera_id, Camera.user_id == user_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
+    await _get_camera_or_404(camera_id, user_id, db)
 
     result = await db.execute(select(DangerZone).where(DangerZone.camera_id == camera_id))
     zones = result.scalars().all()
@@ -73,12 +75,16 @@ async def delete_danger_zone(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    result = await db.execute(select(DangerZone).where(DangerZone.id == zone_id))
+    result = await db.execute(
+        select(DangerZone)
+        .join(Camera, DangerZone.camera_id == Camera.id)
+        .where(DangerZone.id == zone_id, Camera.user_id == user_id)
+    )
     zone = result.scalar_one_or_none()
 
     if not zone:
         raise HTTPException(status_code=404, detail="위험구역을 찾을 수 없어요")
 
-    await db.delete(zone)
+    db.delete(zone)
     await db.commit()
     return {"detail": "삭제됐어요"}

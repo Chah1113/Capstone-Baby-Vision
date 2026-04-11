@@ -5,7 +5,6 @@ YOLO 기반 객체 탐지 모듈
 
 from ultralytics import YOLO
 import numpy as np
-from typing import List, Dict
 
 
 class PersonDetector:
@@ -23,9 +22,9 @@ class PersonDetector:
         self.confidence = confidence
         # best.pt: {0: "adult", 1: "baby"}
         # yolov8n.pt (테스트용 기본 모델): COCO class 0 = person → "baby"로 매핑해 파이프라인 동작 확인
-        self.class_names = {0: "baby", 1: "adult"}
+        self.class_names = {0: "adult", 1: "baby"}
 
-    def detect(self, frame: np.ndarray) -> List[Dict]:
+    def detect(self, frame: np.ndarray) -> list[dict]:
         """
         한 프레임에서 사람을 탐지한다.
 

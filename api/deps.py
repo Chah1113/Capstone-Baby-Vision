@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.base import AsyncSessionLocal
@@ -13,4 +13,7 @@ async def get_db():
 
 def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(_bearer)) -> int:
     payload = decode_access_token(credentials.credentials)
-    return int(payload.get("sub"))
+    sub = payload.get("sub")
+    if sub is None:
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰이에요")
+    return int(sub)

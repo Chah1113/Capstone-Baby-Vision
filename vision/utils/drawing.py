@@ -5,7 +5,6 @@ OpenCV 시각화 유틸리티
 
 import cv2
 import numpy as np
-from typing import List, Dict
 
 
 # 색상 정의 (BGR)
@@ -15,7 +14,7 @@ COLOR_DANGER = (0, 0, 255)     # 빨강 - 위험
 COLOR_ZONE = (255, 255, 0)     # 노랑 - 구역 경계
 
 
-def draw_detections(frame: np.ndarray, detections: List[Dict]) -> np.ndarray:
+def draw_detections(frame: np.ndarray, detections: list[dict]) -> None:
     """
     탐지된 객체의 바운딩 박스를 프레임에 그린다.
 
@@ -35,15 +34,13 @@ def draw_detections(frame: np.ndarray, detections: List[Dict]) -> np.ndarray:
         cv2.putText(frame, text, (x1, y1 - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-    return frame
-
 
 def draw_zones(
     frame: np.ndarray,
-    zones: List[Dict],
+    zones: list[dict],
     frame_width: int,
     frame_height: int,
-) -> np.ndarray:
+) -> None:
     """
     위험 구역 다각형을 프레임에 반투명으로 그린다.
 
@@ -62,7 +59,7 @@ def draw_zones(
             for p in zone["points"]
         ], dtype=np.int32)
 
-        cv2.fillPoly(overlay, [pts], (0, 0, 255, 50))
+        cv2.fillPoly(overlay, [pts], (0, 0, 255))
         cv2.polylines(frame, [pts], True, COLOR_ZONE, 2)
 
         # 구역 이름 표시
@@ -74,10 +71,8 @@ def draw_zones(
     # 반투명 오버레이 합성
     cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
 
-    return frame
 
-
-def draw_warning_banner(frame: np.ndarray, message: str) -> np.ndarray:
+def draw_warning_banner(frame: np.ndarray, message: str) -> None:
     """
     화면 상단에 빨간 경고 배너를 표시한다.
 
@@ -89,5 +84,3 @@ def draw_warning_banner(frame: np.ndarray, message: str) -> np.ndarray:
     cv2.rectangle(frame, (0, 0), (w, 50), COLOR_DANGER, -1)
     cv2.putText(frame, message, (10, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
-
-    return frame
