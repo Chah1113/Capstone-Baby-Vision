@@ -3,6 +3,8 @@ from sqlalchemy.orm import DeclarativeBase
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL 환경변수가 설정되지 않았어요")
 
 engine = create_async_engine(DATABASE_URL, echo=os.getenv("SQL_ECHO", "false") == "true")
 

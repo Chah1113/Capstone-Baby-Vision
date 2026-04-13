@@ -87,6 +87,6 @@ async def delete_camera(
     if not camera:
         raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
 
-    db.delete(camera)
+    await db.delete(camera)
     await db.commit()
     return {"detail": "삭제됐어요"}

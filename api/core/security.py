@@ -5,6 +5,8 @@ from datetime import datetime, timezone, timedelta
 import os
 
 SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY 환경변수가 설정되지 않았어요")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60       # 1시간
 REFRESH_TOKEN_EXPIRE_DAYS = 30         # 30일

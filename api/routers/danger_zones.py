@@ -85,6 +85,6 @@ async def delete_danger_zone(
     if not zone:
         raise HTTPException(status_code=404, detail="위험구역을 찾을 수 없어요")
 
-    db.delete(zone)
+    await db.delete(zone)
     await db.commit()
     return {"detail": "삭제됐어요"}

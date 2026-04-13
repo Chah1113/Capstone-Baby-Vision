@@ -26,8 +26,8 @@ class Camera(Base):
     is_active  = Column(Boolean, default=True)
 
     user             = relationship("User", back_populates="cameras")
-    danger_zones     = relationship("DangerZone", back_populates="camera")
-    detection_events = relationship("DetectionEvent", back_populates="camera")
+    danger_zones     = relationship("DangerZone", back_populates="camera", cascade="all, delete-orphan")
+    detection_events = relationship("DetectionEvent", back_populates="camera", cascade="all, delete-orphan")
 
 
 class DangerZone(Base):
@@ -54,7 +54,7 @@ class DetectionEvent(Base):
     detected_at   = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     camera = relationship("Camera", back_populates="detection_events")
-    alerts = relationship("Alert", back_populates="detection_event")
+    alerts = relationship("Alert", back_populates="detection_event", passive_deletes=True)
 
 
 class Alert(Base):

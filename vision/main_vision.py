@@ -21,6 +21,7 @@ MAIN_SERVER_URL      = os.getenv("MAIN_SERVER_URL", "http://api:8000")
 MEDIAMTX_HOST        = os.getenv("MEDIAMTX_HOST", "mediamtx")
 ALERT_COOLDOWN       = 5   # 같은 구역 재알림 대기 시간(초)
 CAMERA_POLL_INTERVAL = 30  # 카메라 목록 갱신 주기(초)
+ZONE_REFRESH_INTERVAL = 60  # 위험구역 갱신 주기(초)
 SHOW_DISPLAY         = os.getenv("SHOW_DISPLAY", "false").lower() == "true"
 # ==========================
 
@@ -87,8 +88,15 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
     print(f"[{camera_name}] 감지 시작 ({frame_width}x{frame_height})")
 
     last_alert_time = {}
+    last_zone_refresh = time.time()
 
     while not stop_event.is_set():
+        if time.time() - last_zone_refresh >= ZONE_REFRESH_INTERVAL:
+            camera_zones = fetch_zones_for_camera(camera_id)
+            zone_manager.load_zones(camera_zones)
+            last_zone_refresh = time.time()
+            print(f"[{camera_name}] 위험구역 갱신 ({len(zone_manager.zones)}개)")
+
         ret, frame = cap.read()
         if not ret:
             print(f"[{camera_name}] 스트림 끊김")

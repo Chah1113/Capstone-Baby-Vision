@@ -19,6 +19,8 @@ class DangerZone:
         self.zone_id = zone_id
         self.name = name
         self.points = points
+        if not points or len(points) < 3:
+            raise ValueError(f"위험구역 포인트가 3개 미만입니다: {len(points) if points else 0}개")
         self.polygon = Polygon(points)
 
     def contains(self, x: float, y: float) -> bool:
@@ -69,6 +71,9 @@ class ZoneManager:
         Returns:
             침범한 구역 리스트
         """
+        if frame_width <= 0 or frame_height <= 0:
+            return []
+
         # 픽셀 좌표 → 정규화 좌표 변환
         norm_x = center_x / frame_width
         norm_y = center_y / frame_height
