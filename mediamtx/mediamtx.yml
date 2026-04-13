@@ -6,6 +6,8 @@ hls: yes
 hlsAddress: :8888
 webrtcAddress: :8889
 webrtcICEUDPMuxAddress: :8189
+webrtcICEHostHosts:
+  - 211.243.47.179
 
 authInternalUsers:
   - user: any
