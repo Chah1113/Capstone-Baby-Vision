@@ -40,7 +40,7 @@ async def get_zones_internal(camera_id: int, db: AsyncSession = Depends(get_db))
     zones = result.scalars().all()
     return [
         {
-            "zone_id": str(z.id),
+            "zone_id": z.id,
             "name": z.label or f"Zone {z.id}",
             "points": z.zone_points,
         }

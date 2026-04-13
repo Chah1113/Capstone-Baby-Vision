@@ -7,3 +7,7 @@ class CameraCreate(BaseModel):
 
 class CameraUpdate(BaseModel):
     is_active: bool
+
+
+class CameraStatusUpdate(BaseModel):
+    is_connected: bool

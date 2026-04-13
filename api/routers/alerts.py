@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -11,13 +11,17 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 @router.get("")
 async def get_alerts(
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    user_id: int = Depends(get_current_user_id),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
 ):
     result = await db.execute(
         select(Alert)
         .where(Alert.user_id == user_id)
         .options(selectinload(Alert.detection_event))
         .order_by(Alert.sent_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     alerts = result.scalars().all()
 

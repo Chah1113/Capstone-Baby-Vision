@@ -62,6 +62,18 @@ def send_event_to_api(event: dict):
         print(f"[경고] 이벤트 전송 실패: {e}")
 
 
+def report_camera_status(camera_id: int, connected: bool):
+    """API 서버에 카메라 연결 상태를 보고한다."""
+    try:
+        requests.patch(
+            f"{MAIN_SERVER_URL}/cameras/internal/{camera_id}/status",
+            json={"is_connected": connected},
+            timeout=3,
+        )
+    except Exception as e:
+        print(f"[경고] 카메라 상태 보고 실패 (camera_id={camera_id}): {e}")
+
+
 def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Queue):
     """단일 카메라 감지 루프 — 스레드로 실행된다.
     - stop_event가 set되면 종료
@@ -81,8 +93,10 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
     cap = cv2.VideoCapture(rtsp_url)
     if not cap.isOpened():
         print(f"[{camera_name}] RTSP 연결 실패: {rtsp_url}")
+        report_camera_status(camera_id, connected=False)
         return
 
+    report_camera_status(camera_id, connected=True)
     frame_width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"[{camera_name}] 감지 시작 ({frame_width}x{frame_height})")
@@ -100,6 +114,7 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
         ret, frame = cap.read()
         if not ret:
             print(f"[{camera_name}] 스트림 끊김")
+            report_camera_status(camera_id, connected=False)
             break
 
         detections = detector.detect(frame)

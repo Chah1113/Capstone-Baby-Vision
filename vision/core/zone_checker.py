@@ -9,10 +9,10 @@ from shapely.geometry import Point, Polygon
 class DangerZone:
     """하나의 위험 구역을 표현하는 클래스"""
 
-    def __init__(self, zone_id: str, name: str, points: list[list[float]]):
+    def __init__(self, zone_id: int, name: str, points: list[list[float]]):
         """
         Args:
-            zone_id: 구역 고유 ID
+            zone_id: 구역 고유 ID (DangerZone.id)
             name: 구역 이름 (예: "주방")
             points: 정규화 좌표 리스트 [[x, y], ...] (0.0~1.0)
         """
@@ -38,14 +38,14 @@ class ZoneManager:
     """여러 위험 구역을 관리하는 매니저 클래스"""
 
     def __init__(self):
-        self.zones: dict[str, DangerZone] = {}
+        self.zones: dict[int, DangerZone] = {}
 
     def load_zones(self, zone_list: list[dict]):
         """
         서버에서 받은 구역 목록을 로드한다.
 
         Args:
-            zone_list: [{"zone_id": str, "name": str, "points": [[x,y], ...]}, ...]
+            zone_list: [{"zone_id": int, "name": str, "points": [[x,y], ...]}, ...]
         """
         self.zones.clear()
         for z in zone_list:
