@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from deps import get_db, get_current_user_id
 from db.models import Camera
-from schemas.cameras import CameraCreate
+from schemas.cameras import CameraCreate, CameraUpdate
 import uuid
 import os
 
@@ -18,6 +18,7 @@ def _camera_dict(c: Camera) -> dict:
         "id": c.id,
         "name": c.name,
         "stream_url": c.stream_url,
+        "is_active": c.is_active,
         "webrtc_url": f"http://{webrtc_host}:{webrtc_port}/{stream_path}/whep"
     }
 
@@ -73,6 +74,24 @@ async def get_cameras(
     result = await db.execute(select(Camera).where(Camera.user_id == user_id))
     cameras = result.scalars().all()
     return [_camera_dict(c) for c in cameras]
+
+
+@router.patch("/{camera_id}")
+async def update_camera(
+    camera_id: int,
+    body: CameraUpdate,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    result = await db.execute(select(Camera).where(Camera.id == camera_id, Camera.user_id == user_id))
+    camera = result.scalar_one_or_none()
+
+    if not camera:
+        raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
+
+    camera.is_active = body.is_active
+    await db.commit()
+    return _camera_dict(camera)
 
 
 @router.delete("/{camera_id}")
