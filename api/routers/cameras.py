@@ -11,7 +11,15 @@ router = APIRouter(prefix="/cameras", tags=["cameras"])
 
 
 def _camera_dict(c: Camera) -> dict:
-    return {"id": c.id, "name": c.name, "stream_url": c.stream_url}
+    webrtc_host = os.getenv("WEBRTC_HOST", os.getenv("SERVER_HOST", "localhost"))
+    webrtc_port = os.getenv("WEBRTC_PORT", "8889")
+    stream_path = c.stream_url.split("/")[-1]
+    return {
+        "id": c.id,
+        "name": c.name,
+        "stream_url": c.stream_url,
+        "webrtc_url": f"http://{webrtc_host}:{webrtc_port}/{stream_path}/whep"
+    }
 
 
 @router.post("")
@@ -20,8 +28,9 @@ async def create_camera(
     db: AsyncSession = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    server_host = os.getenv("SERVER_HOST", "localhost")
-    stream_url = f"rtsp://{server_host}:8554/{uuid.uuid4()}"
+    rtsp_host = os.getenv("RTSP_HOST", os.getenv("SERVER_HOST", "localhost"))
+    rtsp_port = os.getenv("RTSP_PORT", "8554")
+    stream_url = f"rtsp://{rtsp_host}:{rtsp_port}/{uuid.uuid4()}"
 
     camera = Camera(
         user_id=user_id,
@@ -39,6 +48,21 @@ async def get_all_cameras_internal(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Camera).where(Camera.is_active == True))
     cameras = result.scalars().all()
     return [_camera_dict(c) for c in cameras]
+
+
+@router.get("/{camera_id}")
+async def get_camera(
+    camera_id: int,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    result = await db.execute(select(Camera).where(Camera.id == camera_id, Camera.user_id == user_id))
+    camera = result.scalar_one_or_none()
+
+    if not camera:
+        raise HTTPException(status_code=404, detail="카메라를 찾을 수 없어요")
+
+    return _camera_dict(camera)
 
 
 @router.get("")
