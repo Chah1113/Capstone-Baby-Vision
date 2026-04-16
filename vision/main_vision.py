@@ -176,6 +176,9 @@ def run_camera(
             x1, y1, x2, y2 = det["bbox"]
             intruded_zones = zone_manager.check_intrusion(x1, y1, x2, y2, frame_width, frame_height)
 
+            if det["class_name"] != "baby":
+                continue
+
             for zone in intruded_zones:
                 now = time.time()
                 if now - last_alert_time.get(zone.zone_id, 0) > ALERT_COOLDOWN:
