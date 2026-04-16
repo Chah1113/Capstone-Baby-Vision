@@ -13,6 +13,7 @@ import requests
 from models.detector import PersonDetector
 from core.zone_checker import ZoneManager
 from utils.drawing import draw_detections, draw_zones, draw_warning_banner
+from utils import stream_server
 
 
 # ========== 설정 ==========
@@ -24,7 +25,9 @@ CAMERA_POLL_INTERVAL  = 30  # 카메라 목록 갱신 주기(초)
 ZONE_REFRESH_INTERVAL = 60  # 위험구역 갱신 주기(초)
 RECONNECT_RETRIES     = 5   # RTSP 재연결 최대 시도 횟수
 RECONNECT_DELAY       = 3   # 재연결 시도 간격(초)
+DETECT_FPS            = int(os.getenv("DETECT_FPS", "5"))   # 초당 감지 프레임 수
 SHOW_DISPLAY          = os.getenv("SHOW_DISPLAY", "false").lower() == "true"
+STREAM_PORT           = int(os.getenv("STREAM_PORT", "8090"))
 # ==========================
 
 
@@ -97,6 +100,7 @@ def run_camera(
     print(f"[{camera_name}] 위험구역 {len(zone_manager.zones)}개 로드")
 
     cap = cv2.VideoCapture(rtsp_url)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 내부 버퍼 최소화
     if not cap.isOpened():
         print(f"[{camera_name}] RTSP 연결 실패: {rtsp_url}")
         report_camera_status(camera_id, connected=False)
@@ -107,8 +111,10 @@ def run_camera(
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"[{camera_name}] 감지 시작 ({frame_width}x{frame_height})")
 
-    last_alert_time = {}
+    last_alert_time  = {}
     last_zone_refresh = time.time()
+    last_detect_time  = 0.0
+    frame_interval    = 1.0 / DETECT_FPS
 
     while not stop_event.is_set():
         if time.time() - last_zone_refresh >= ZONE_REFRESH_INTERVAL:
@@ -116,6 +122,13 @@ def run_camera(
             zone_manager.load_zones(camera_zones)
             last_zone_refresh = time.time()
             print(f"[{camera_name}] 위험구역 갱신 ({len(zone_manager.zones)}개)")
+
+        # 처리 주기보다 빠르게 들어오는 프레임은 grab()으로 버퍼에서 제거
+        now = time.time()
+        if now - last_detect_time < frame_interval:
+            cap.grab()
+            continue
+        last_detect_time = now
 
         ret, frame = cap.read()
         if not ret:
@@ -129,6 +142,7 @@ def run_camera(
                 print(f"[{camera_name}] 재연결 {attempt}/{RECONNECT_RETRIES}...")
                 time.sleep(RECONNECT_DELAY)
                 cap = cv2.VideoCapture(rtsp_url)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 if cap.isOpened():
                     report_camera_status(camera_id, connected=True)
                     frame_width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -166,13 +180,16 @@ def run_camera(
                     })
                     print(f"[{camera_name}] {warning_message}")
 
-        # 화면 출력용 프레임 준비 — 그리기만 하고 imshow는 메인 스레드에서
+        # 어노테이션 그리기 — 스트림 서버 및 로컬 화면 출력에 공통 사용
+        draw_detections(frame, detections)
+        if zone_manager.zones:
+            draw_zones(frame, camera_zones, frame_width, frame_height)
+        if warning_message:
+            draw_warning_banner(frame, warning_message)
+
+        stream_server.update_frame(camera_name, frame)
+
         if SHOW_DISPLAY:
-            draw_detections(frame, detections)
-            if zone_manager.zones:
-                draw_zones(frame, camera_zones, frame_width, frame_height)
-            if warning_message:
-                draw_warning_banner(frame, warning_message)
             # maxsize=1 큐: 최신 프레임만 유지 (가득 차 있으면 버림)
             try:
                 frame_queue.put_nowait((camera_name, frame))
@@ -235,6 +252,7 @@ def main():
     running: dict[int, tuple[threading.Thread, threading.Event, queue.Queue]] = {}
     lock = threading.Lock()
 
+    stream_server.start(port=STREAM_PORT)
     print(f"[시작] 카메라 감지 시작 (갱신 주기: {CAMERA_POLL_INTERVAL}초)")
 
     # 카메라 감시는 별도 스레드에서 실행
