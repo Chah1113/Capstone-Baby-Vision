@@ -31,6 +31,8 @@ services:
     build: ./vision
     env_file:
       - .env
+    environment:
+      - MODEL_PATH=weights/best.pt
     depends_on:
       api:
         condition: service_started

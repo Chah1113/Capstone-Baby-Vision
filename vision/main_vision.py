@@ -16,7 +16,7 @@ from utils.drawing import draw_detections, draw_zones, draw_warning_banner
 
 
 # ========== 설정 ==========
-MODEL_PATH            = os.getenv("MODEL_PATH", "yolov8n.pt")
+MODEL_PATH            = os.getenv("MODEL_PATH", "weights/best.pt")
 MAIN_SERVER_URL       = os.getenv("MAIN_SERVER_URL", "http://api:8000")
 MEDIAMTX_HOST         = os.getenv("MEDIAMTX_HOST", "mediamtx")
 ALERT_COOLDOWN        = 5   # 같은 구역 재알림 대기 시간(초)
