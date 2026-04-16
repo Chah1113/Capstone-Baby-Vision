@@ -3,7 +3,8 @@
 - Shapely 라이브러리로 다각형 내 좌표 포함 여부 계산
 """
 
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Polygon
+from shapely.geometry import box as make_box
 
 
 class DangerZone:
@@ -23,15 +24,6 @@ class DangerZone:
             raise ValueError(f"위험구역 포인트가 3개 미만입니다: {len(points) if points else 0}개")
         self.polygon = Polygon(points)
 
-    def contains(self, x: float, y: float) -> bool:
-        """
-        주어진 좌표가 이 구역 안에 있는지 확인한다.
-
-        Args:
-            x: 정규화된 x 좌표
-            y: 정규화된 y 좌표
-        """
-        return self.polygon.contains(Point(x, y))
 
 
 class ZoneManager:
@@ -57,14 +49,13 @@ class ZoneManager:
             self.zones[zone.zone_id] = zone
 
     def check_intrusion(
-        self, center_x: int, center_y: int, frame_width: int, frame_height: int
+        self, x1: int, y1: int, x2: int, y2: int, frame_width: int, frame_height: int
     ) -> list[DangerZone]:
         """
-        탐지된 객체의 중심점이 어떤 위험 구역에 들어갔는지 확인한다.
+        탐지된 객체의 바운딩 박스가 위험 구역과 겹치는지 확인한다.
 
         Args:
-            center_x: 객체 중심 x (픽셀)
-            center_y: 객체 중심 y (픽셀)
+            x1, y1, x2, y2: 바운딩 박스 픽셀 좌표
             frame_width: 프레임 가로 크기
             frame_height: 프레임 세로 크기
 
@@ -75,12 +66,16 @@ class ZoneManager:
             return []
 
         # 픽셀 좌표 → 정규화 좌표 변환
-        norm_x = center_x / frame_width
-        norm_y = center_y / frame_height
+        detection_box = make_box(
+            x1 / frame_width,
+            y1 / frame_height,
+            x2 / frame_width,
+            y2 / frame_height,
+        )
 
         intruded = []
         for zone in self.zones.values():
-            if zone.contains(norm_x, norm_y):
+            if zone.polygon.intersects(detection_box):
                 intruded.append(zone)
 
         return intruded

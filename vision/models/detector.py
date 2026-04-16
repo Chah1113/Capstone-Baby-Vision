@@ -20,8 +20,7 @@ class PersonDetector:
         """
         self.model = YOLO(model_path)
         self.confidence = confidence
-        # best.pt 기준: {0: "adult", 1: "baby"}
-        self.class_names = {0: "person"}
+        self.class_names = self.model.names
 
     def detect(self, frame: np.ndarray) -> list[dict]:
         """

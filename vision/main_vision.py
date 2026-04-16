@@ -121,11 +121,8 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
         warning_message = None
 
         for det in detections:
-            if det["class_name"] not in ["baby-lying-on-back", "baby-lying-on-stomach"]:
-                continue
-
-            cx, cy = det["center"]
-            intruded_zones = zone_manager.check_intrusion(cx, cy, frame_width, frame_height)
+            x1, y1, x2, y2 = det["bbox"]
+            intruded_zones = zone_manager.check_intrusion(x1, y1, x2, y2, frame_width, frame_height)
 
             for zone in intruded_zones:
                 now = time.time()
