@@ -79,6 +79,12 @@ def report_camera_status(camera_id: int, connected: bool):
         print(f"[경고] 카메라 상태 보고 실패 (camera_id={camera_id}): {e}")
 
 
+def _open_cap(rtsp_url: str) -> cv2.VideoCapture:
+    cap = cv2.VideoCapture(rtsp_url)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    return cap
+
+
 def run_camera(
     camera: dict,
     stop_event: threading.Event,
@@ -87,8 +93,11 @@ def run_camera(
     model_lock: threading.Lock,
 ):
     """단일 카메라 감지 루프 — 스레드로 실행된다.
-    - stop_event가 set되면 종료
-    - SHOW_DISPLAY=true 시 처리된 프레임을 frame_queue에 넣어 메인 스레드가 표시
+
+    grab() 으로 소켓을 항상 빠르게 비워 MediaMTX 버퍼 누적을 방지하고,
+    DETECT_FPS 주기가 됐을 때만 retrieve() 로 decode → YOLO 처리한다.
+    YOLO 처리 중 쌓인 프레임도 다음 루프에서 즉시 grab() 으로 소진되므로
+    딜레이가 YOLO 1회 처리 시간 수준으로 유지된다.
     """
     camera_id   = camera["id"]
     camera_name = camera["name"]
@@ -99,8 +108,7 @@ def run_camera(
     zone_manager.load_zones(camera_zones)
     print(f"[{camera_name}] 위험구역 {len(zone_manager.zones)}개 로드")
 
-    cap = cv2.VideoCapture(rtsp_url)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 내부 버퍼 최소화
+    cap = _open_cap(rtsp_url)
     if not cap.isOpened():
         print(f"[{camera_name}] RTSP 연결 실패: {rtsp_url}")
         report_camera_status(camera_id, connected=False)
@@ -109,29 +117,17 @@ def run_camera(
     report_camera_status(camera_id, connected=True)
     frame_width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    print(f"[{camera_name}] 감지 시작 ({frame_width}x{frame_height})")
+    source_fps   = cap.get(cv2.CAP_PROP_FPS)
+    print(f"[{camera_name}] 감지 시작 ({frame_width}x{frame_height} @ {source_fps:.1f}fps, 처리: {DETECT_FPS}fps)")
 
-    last_alert_time  = {}
+    last_alert_time   = {}
     last_zone_refresh = time.time()
     last_detect_time  = 0.0
     frame_interval    = 1.0 / DETECT_FPS
 
     while not stop_event.is_set():
-        if time.time() - last_zone_refresh >= ZONE_REFRESH_INTERVAL:
-            camera_zones = fetch_zones_for_camera(camera_id)
-            zone_manager.load_zones(camera_zones)
-            last_zone_refresh = time.time()
-            print(f"[{camera_name}] 위험구역 갱신 ({len(zone_manager.zones)}개)")
-
-        # 처리 주기보다 빠르게 들어오는 프레임은 grab()으로 버퍼에서 제거
-        now = time.time()
-        if now - last_detect_time < frame_interval:
-            cap.grab()
-            continue
-        last_detect_time = now
-
-        ret, frame = cap.read()
-        if not ret:
+        # ── 항상 grab() 으로 소켓 비우기 (decode 없음, 매우 빠름) ──
+        if not cap.grab():
             cap.release()
             report_camera_status(camera_id, connected=False)
             print(f"[{camera_name}] 스트림 끊김 — 재연결 시도")
@@ -141,8 +137,7 @@ def run_camera(
                     break
                 print(f"[{camera_name}] 재연결 {attempt}/{RECONNECT_RETRIES}...")
                 time.sleep(RECONNECT_DELAY)
-                cap = cv2.VideoCapture(rtsp_url)
-                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                cap = _open_cap(rtsp_url)
                 if cap.isOpened():
                     report_camera_status(camera_id, connected=True)
                     frame_width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -154,6 +149,23 @@ def run_camera(
                 print(f"[{camera_name}] 재연결 실패 — 스레드 종료")
                 break
             continue
+
+        # ── DETECT_FPS 주기가 아니면 grab() 만 하고 다음 루프 ──
+        now = time.time()
+        if now - last_detect_time < frame_interval:
+            continue
+        last_detect_time = now
+
+        # ── 주기가 됐을 때만 decode → YOLO ──
+        ret, frame = cap.retrieve()
+        if not ret:
+            continue
+
+        if time.time() - last_zone_refresh >= ZONE_REFRESH_INTERVAL:
+            camera_zones = fetch_zones_for_camera(camera_id)
+            zone_manager.load_zones(camera_zones)
+            last_zone_refresh = time.time()
+            print(f"[{camera_name}] 위험구역 갱신 ({len(zone_manager.zones)}개)")
 
         with model_lock:
             detections = detector.detect(frame)
@@ -180,7 +192,6 @@ def run_camera(
                     })
                     print(f"[{camera_name}] {warning_message}")
 
-        # 어노테이션 그리기 — 스트림 서버 및 로컬 화면 출력에 공통 사용
         draw_detections(frame, detections)
         if zone_manager.zones:
             draw_zones(frame, camera_zones, frame_width, frame_height)
@@ -190,7 +201,6 @@ def run_camera(
         stream_server.update_frame(camera_name, frame)
 
         if SHOW_DISPLAY:
-            # maxsize=1 큐: 최신 프레임만 유지 (가득 차 있으면 버림)
             try:
                 frame_queue.put_nowait((camera_name, frame))
             except queue.Full:
