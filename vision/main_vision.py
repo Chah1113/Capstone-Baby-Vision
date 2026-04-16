@@ -16,13 +16,15 @@ from utils.drawing import draw_detections, draw_zones, draw_warning_banner
 
 
 # ========== 설정 ==========
-MODEL_PATH           = os.getenv("MODEL_PATH", "yolov8n.pt")
-MAIN_SERVER_URL      = os.getenv("MAIN_SERVER_URL", "http://api:8000")
-MEDIAMTX_HOST        = os.getenv("MEDIAMTX_HOST", "mediamtx")
-ALERT_COOLDOWN       = 5   # 같은 구역 재알림 대기 시간(초)
-CAMERA_POLL_INTERVAL = 30  # 카메라 목록 갱신 주기(초)
+MODEL_PATH            = os.getenv("MODEL_PATH", "yolov8n.pt")
+MAIN_SERVER_URL       = os.getenv("MAIN_SERVER_URL", "http://api:8000")
+MEDIAMTX_HOST         = os.getenv("MEDIAMTX_HOST", "mediamtx")
+ALERT_COOLDOWN        = 5   # 같은 구역 재알림 대기 시간(초)
+CAMERA_POLL_INTERVAL  = 30  # 카메라 목록 갱신 주기(초)
 ZONE_REFRESH_INTERVAL = 60  # 위험구역 갱신 주기(초)
-SHOW_DISPLAY         = os.getenv("SHOW_DISPLAY", "false").lower() == "true"
+RECONNECT_RETRIES     = 5   # RTSP 재연결 최대 시도 횟수
+RECONNECT_DELAY       = 3   # 재연결 시도 간격(초)
+SHOW_DISPLAY          = os.getenv("SHOW_DISPLAY", "false").lower() == "true"
 # ==========================
 
 
@@ -74,7 +76,13 @@ def report_camera_status(camera_id: int, connected: bool):
         print(f"[경고] 카메라 상태 보고 실패 (camera_id={camera_id}): {e}")
 
 
-def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Queue):
+def run_camera(
+    camera: dict,
+    stop_event: threading.Event,
+    frame_queue: queue.Queue,
+    detector: PersonDetector,
+    model_lock: threading.Lock,
+):
     """단일 카메라 감지 루프 — 스레드로 실행된다.
     - stop_event가 set되면 종료
     - SHOW_DISPLAY=true 시 처리된 프레임을 frame_queue에 넣어 메인 스레드가 표시
@@ -87,8 +95,6 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
     zone_manager = ZoneManager()
     zone_manager.load_zones(camera_zones)
     print(f"[{camera_name}] 위험구역 {len(zone_manager.zones)}개 로드")
-
-    detector = PersonDetector(model_path=MODEL_PATH)
 
     cap = cv2.VideoCapture(rtsp_url)
     if not cap.isOpened():
@@ -113,11 +119,31 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
 
         ret, frame = cap.read()
         if not ret:
-            print(f"[{camera_name}] 스트림 끊김")
+            cap.release()
             report_camera_status(camera_id, connected=False)
-            break
+            print(f"[{camera_name}] 스트림 끊김 — 재연결 시도")
+            reconnected = False
+            for attempt in range(1, RECONNECT_RETRIES + 1):
+                if stop_event.is_set():
+                    break
+                print(f"[{camera_name}] 재연결 {attempt}/{RECONNECT_RETRIES}...")
+                time.sleep(RECONNECT_DELAY)
+                cap = cv2.VideoCapture(rtsp_url)
+                if cap.isOpened():
+                    report_camera_status(camera_id, connected=True)
+                    frame_width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    reconnected = True
+                    print(f"[{camera_name}] 재연결 성공")
+                    break
+            if not reconnected:
+                print(f"[{camera_name}] 재연결 실패 — 스레드 종료")
+                break
+            continue
 
-        detections = detector.detect(frame)
+        with model_lock:
+            detections = detector.detect(frame)
+
         warning_message = None
 
         for det in detections:
@@ -157,13 +183,14 @@ def run_camera(camera: dict, stop_event: threading.Event, frame_queue: queue.Que
     print(f"[{camera_name}] 스레드 종료")
 
 
-def watch_cameras(running: dict, lock: threading.Lock):
+def watch_cameras(running: dict, lock: threading.Lock, detector: PersonDetector, model_lock: threading.Lock):
     """카메라 목록을 주기적으로 확인하고 스레드를 동적으로 관리한다."""
     while True:
         try:
             cameras = fetch_all_cameras()
             active_ids = {c["id"]: c for c in cameras}
 
+            to_remove = []
             with lock:
                 # 새로 추가된 카메라 OR 죽은 스레드(스트림 끊김 등) → 스레드 시작
                 for camera_id, camera in active_ids.items():
@@ -173,20 +200,24 @@ def watch_cameras(running: dict, lock: threading.Lock):
                         fq = queue.Queue(maxsize=1)
                         t = threading.Thread(
                             target=run_camera,
-                            args=(camera, stop_event, fq),
+                            args=(camera, stop_event, fq, detector, model_lock),
                             daemon=True,
                         )
                         t.start()
                         running[camera_id] = (t, stop_event, fq)
                         print(f"[{'재시작' if existing else '추가'}] [{camera['name']}] 스레드 시작")
 
-                # 비활성/삭제된 카메라 → 스레드 종료
+                # 비활성/삭제된 카메라 → stop 신호 후 목록에서 제거
                 for camera_id in list(running.keys()):
                     if camera_id not in active_ids:
                         t, stop_event, _ = running.pop(camera_id)
                         stop_event.set()
-                        t.join(timeout=5)  # 최대 5초 대기 후 리소스 정리 보장
-                        print(f"[제거] camera_id={camera_id} 스레드 종료")
+                        to_remove.append((camera_id, t))
+
+            # 락 밖에서 join — 락을 잡은 채 대기하지 않음
+            for camera_id, t in to_remove:
+                t.join(timeout=5)
+                print(f"[제거] camera_id={camera_id} 스레드 종료")
 
         except Exception as e:
             print(f"[오류] watch_cameras 예외 발생: {e}")
@@ -195,6 +226,11 @@ def watch_cameras(running: dict, lock: threading.Lock):
 
 
 def main():
+    # 모델 하나를 공유 — 카메라마다 따로 로드하지 않음
+    print(f"[시작] YOLO 모델 로드 중: {MODEL_PATH}")
+    detector = PersonDetector(model_path=MODEL_PATH)
+    model_lock = threading.Lock()
+
     # camera_id → (thread, stop_event, frame_queue)
     running: dict[int, tuple[threading.Thread, threading.Event, queue.Queue]] = {}
     lock = threading.Lock()
@@ -202,7 +238,11 @@ def main():
     print(f"[시작] 카메라 감지 시작 (갱신 주기: {CAMERA_POLL_INTERVAL}초)")
 
     # 카메라 감시는 별도 스레드에서 실행
-    watcher = threading.Thread(target=watch_cameras, args=(running, lock), daemon=True)
+    watcher = threading.Thread(
+        target=watch_cameras,
+        args=(running, lock, detector, model_lock),
+        daemon=True,
+    )
     watcher.start()
 
     if SHOW_DISPLAY:

@@ -11,8 +11,8 @@ router = APIRouter(prefix="/cameras", tags=["cameras"])
 
 
 def _camera_dict(c: Camera) -> dict:
-    webrtc_host = os.getenv("WEBRTC_HOST", os.getenv("SERVER_HOST", "localhost"))
-    webrtc_port = os.getenv("WEBRTC_PORT", "8889")
+    hls_host = os.getenv("HLS_HOST", os.getenv("SERVER_HOST", "localhost"))
+    hls_port = os.getenv("HLS_PORT", "8888")
     stream_path = c.stream_url.split("/")[-1]
     return {
         "id": c.id,
@@ -20,7 +20,7 @@ def _camera_dict(c: Camera) -> dict:
         "stream_url": c.stream_url,
         "is_active": c.is_active,
         "is_connected": c.is_connected,
-        "webrtc_url": f"http://{webrtc_host}:{webrtc_port}/{stream_path}/whep"
+        "hls_url": f"http://{hls_host}:{hls_port}/{stream_path}/index.m3u8"
     }
 
 

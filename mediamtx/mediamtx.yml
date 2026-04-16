@@ -4,10 +4,6 @@ api: yes
 apiAddress: :9997
 hls: yes
 hlsAddress: :8888
-webrtcAddress: :8889
-webrtcLocalUDPAddress: :8189
-webrtcAdditionalHosts:
-  - 211.243.47.179
 authInternalUsers:
   - user: any
     pass:
